@@ -1,0 +1,64 @@
+diff -urNp gcc-4.2.2/config.sub gcc-4.2.2-meinos//config.sub
+--- gcc-4.2.2/config.sub	2006-10-16 05:27:17.000000000 +0200
++++ gcc-4.2.2-meinos//config.sub	2008-08-03 20:39:31.000000000 +0200
+@@ -120,7 +120,7 @@ esac
+ # Here we must recognize all the valid KERNEL-OS combinations.
+ maybe_os=`echo $1 | sed 's/^\(.*\)-\([^-]*-[^-]*\)$/\2/'`
+ case $maybe_os in
+-  nto-qnx* | linux-gnu* | linux-dietlibc | linux-newlib* | linux-uclibc* | \
++  meinos* | nto-qnx* | linux-gnu* | linux-dietlibc | linux-newlib* | linux-uclibc* | \
+   uclinux-uclibc* | uclinux-gnu* | kfreebsd*-gnu* | knetbsd*-gnu* | netbsd*-gnu* | \
+   storm-chaos* | os2-emx* | rtmk-nova*)
+     os=-$maybe_os
+@@ -1200,7 +1200,7 @@ case $os in
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+-	      | -aos* \
++	      | -aos* | -meinos* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -urNp gcc-4.2.2/gcc/config/meinos.h gcc-4.2.2-meinos//gcc/config/meinos.h
+--- gcc-4.2.2/gcc/config/meinos.h	1970-01-01 01:00:00.000000000 +0100
++++ gcc-4.2.2-meinos//gcc/config/meinos.h	2008-08-27 19:44:41.000000000 +0200
+@@ -0,0 +1,11 @@
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define_std ("meinos");      \
++    builtin_define_std ("unix");      \
++    builtin_assert ("system=meinos");   \
++    builtin_assert ("system=unix");   \
++  } while(0);
++
++#undef TARGET_VERSION
++#define TARGET_VERSION fprintf(stderr, " (i386 meinos)");
+diff -urNp gcc-4.2.2/gcc/config.gcc gcc-4.2.2-meinos//gcc/config.gcc
+--- gcc-4.2.2/gcc/config.gcc	2007-09-01 17:28:30.000000000 +0200
++++ gcc-4.2.2-meinos//gcc/config.gcc	2008-08-10 12:42:33.000000000 +0200
+@@ -362,6 +362,12 @@ esac
+ 
+ # Common parts for widely ported systems.
+ case ${target} in
++*-*-meinos*)
++   extra_parts="crtbegin.o crtend.o libmeinos.a"
++   gas=yes
++   gnu_ld=yes
++   default_use_cxa_atexit=no
++   ;;
+ *-*-darwin*)
+   tm_file="${tm_file} darwin.h"
+   case ${target} in
+@@ -576,6 +582,11 @@ esac
+ 
+ case ${target} in
+ # Support site-specific machine types.
++i[3-7]86-*-meinos*)
++  tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h meinos.h"
++  tmake_file="i386/t-i386elf t-svr4"
++  use_fixproto=yes
++  ;;
+ *local*)
+ 	rest=`echo ${target} | sed -e "s/$cpu_type-//"`
+ 	tm_file=${cpu_type}/$rest.h

@@ -1,0 +1,112 @@
+diff -urNp binutils-2.18/bfd/config.bfd binutils-2.18-meinos//bfd/config.bfd
+--- binutils-2.18/bfd/config.bfd	2007-08-28 19:19:33.000000000 +0200
++++ binutils-2.18-meinos//bfd/config.bfd	2008-08-03 15:36:20.000000000 +0200
+@@ -197,6 +197,11 @@ case "${targ}" in
+     ;;
+ #endif /* BFD64 */
+ 
++  i[3-7]86-*-meinos*)
++     targ_defvec=bfd_elf32_i386_vec
++     targ_selvecs=i386coff_vec
++     ;;
++
+   am33_2.0-*-linux*)
+     targ_defvec=bfd_elf32_am33lin_vec
+     ;;
+diff -urNp binutils-2.18/config.sub binutils-2.18-meinos//config.sub
+--- binutils-2.18/config.sub	2007-08-06 22:00:30.000000000 +0200
++++ binutils-2.18-meinos//config.sub	2008-08-03 10:57:16.000000000 +0200
+@@ -1207,7 +1207,7 @@ case $os in
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+-	      | -aos* \
++	      | -aos* | -meinos* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -urNp binutils-2.18/gas/configure.tgt binutils-2.18-meinos//gas/configure.tgt
+--- binutils-2.18/gas/configure.tgt	2007-08-28 19:19:36.000000000 +0200
++++ binutils-2.18-meinos//gas/configure.tgt	2008-08-03 11:06:24.000000000 +0200
+@@ -94,6 +94,8 @@ esac
+ generic_target=${cpu_type}-$vendor-$os
+ # Note: This table is alpha-sorted, please try to keep it that way.
+ case ${generic_target} in
++  i386-*-meinos*)    fmt=elf ;;
++
+   alpha-*-*vms*)			fmt=evax ;;
+   alpha-*-osf*)				fmt=ecoff ;;
+   alpha-*-linuxecoff*)			fmt=ecoff ;;
+diff -urNp binutils-2.18/ld/configure binutils-2.18-meinos//ld/configure
+--- binutils-2.18/ld/configure	2007-08-12 20:53:33.000000000 +0200
++++ binutils-2.18-meinos//ld/configure	2008-08-27 20:07:17.000000000 +0200
+@@ -11220,7 +11220,6 @@ else
+   GENINSRC_NEVER_FALSE=
+ fi
+ 
+-
+ . ${srcdir}/configure.host
+ 
+ 
+diff -urNp binutils-2.18/ld/configure.host binutils-2.18-meinos//ld/configure.host
+--- binutils-2.18/ld/configure.host	2007-08-28 19:19:42.000000000 +0200
++++ binutils-2.18-meinos//ld/configure.host	2008-08-27 20:10:28.000000000 +0200
+@@ -15,7 +15,6 @@ HOSTING_LIBS='`if [ -f ../gcc/libgcc.a ]
+ #
+ #	Generic configurations:
+ #
+-
+ case "${host}" in
+ 
+ *-*-freebsd* | *-*-kfreebsd*-gnu | *-*-dragonfly*)
+diff -urNp binutils-2.18/ld/configure.tgt binutils-2.18-meinos//ld/configure.tgt
+--- binutils-2.18/ld/configure.tgt	2007-08-28 19:19:42.000000000 +0200
++++ binutils-2.18-meinos//ld/configure.tgt	2008-08-27 20:15:51.000000000 +0200
+@@ -27,6 +27,9 @@ targ64_extra_libpath=
+ # architecture variants should be kept together even if their names
+ # break the alpha sorting.
+ case "${targ}" in
++i[3-7]86-*-meinos*)    
++			targ_emul=meinos_i386
++			;;
+ alpha*-*-freebsd* | alpha*-*-kfreebsd*-gnu)
+ 		        targ_emul=elf64alpha_fbsd
+ 			targ_extra_emuls="elf64alpha alpha"
+diff -urNp binutils-2.18/ld/emulparams/meinos_i386.sh binutils-2.18-meinos//ld/emulparams/meinos_i386.sh
+--- binutils-2.18/ld/emulparams/meinos_i386.sh	1970-01-01 01:00:00.000000000 +0100
++++ binutils-2.18-meinos//ld/emulparams/meinos_i386.sh	2008-08-27 20:16:45.000000000 +0200
+@@ -0,0 +1,13 @@
++SCRIPT_NAME=elf
++OUTPUT_FORMAT=elf32-i386
++TEXT_START_ADDR=0x40001000
++MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
++COMMONPAGESIZE="CONSTANT (COMMONPAGESIZE)"
++ARCH=i386
++MACHINE=
++NOP=0x90909090
++TEMPLATE_NAME=elf32
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
++NO_SMALL_DATA=yes
++SEPARATE_GOTPLT=12
+\ Kein Zeilenumbruch am Dateiende.
+diff -urNp binutils-2.18/ld/Makefile.in binutils-2.18-meinos//ld/Makefile.in
+--- binutils-2.18/ld/Makefile.in	2007-08-06 22:29:54.000000000 +0200
++++ binutils-2.18-meinos//ld/Makefile.in	2008-08-03 14:20:32.000000000 +0200
+@@ -448,6 +448,7 @@ ALL_EMULATIONS = \
+ 	eelf32xstormy16.o \
+ 	eelf32xtensa.o \
+ 	eelf_i386.o \
++	emeinos_i386.o \
+ 	eelf_i386_be.o \
+ 	eelf_i386_chaos.o \
+ 	eelf_i386_fbsd.o \
+@@ -1807,6 +1808,8 @@ eelf64ltsmip.c: $(srcdir)/emulparams/elf
+ eelf_i386.c: $(srcdir)/emulparams/elf_i386.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf_i386 "$(tdir_elf_i386)"
++emeinos_i386.c: $(srcdir)/emulparams/meinos_i386.sh $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} meinos_i386 "$(tdir_meinos_i386)"
+ eelf_x86_64.c: $(srcdir)/emulparams/elf_x86_64.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 	${GENSCRIPTS} elf_x86_64 "$(tdir_elf_x86_64)"

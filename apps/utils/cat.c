@@ -1,0 +1,147 @@
+#include <stdio.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <ctype.h>
+
+void usage(char *prog,int ret) {
+  FILE *stream = ret==0?stdout:stderr;
+  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
+  fprintf(stream,"Echo the STRING(s) to standard output\n");
+  fprintf(stream,"\t-n\tdo not output the trailing newline\n");
+  fprintf(stream,"\t-e\tenable interpretation of backslash escapes\n");
+  fprintf(stream,"\t-E\tdisable interpretation of backslash escapes (default)\n");
+  fprintf(stream,"\t-h\tdisplay this help and exit\n");
+  fprintf(stream,"\t-v\toutput version information and exit\n");
+}
+
+// flags
+int non_print,display_ends,display_tabs,squeeze_blank;
+enum { NO, NONBLANK, ALL } number;
+
+// current count of new lines
+int blanklines_cur,blanklines,lines;
+
+void escape_string(char chr) {
+  if (chr=='\a') puts("^G");
+  else if (chr=='\b') puts("^H");
+  else if (chr=='\f') puts("^L");
+  else if (chr=='\r') puts("^M");
+  else if (chr=='\v') puts("^K");
+  else putchar(chr);
+}
+
+static inline void print_line(char nextchr) {
+  if (number!=NO && nextchr!=0 && (number==ALL || nextchr!='\n' || nextchr!='\r')) {
+    printf("% 6d  ");
+  }
+}
+
+void cat(FILE *fd) {
+  char buf[BUFSIZ+1];
+  buf[BUFSIZ] = 0; // for print_line()
+
+  print_line(buf[0]);
+
+  while (!feof(fd)) {
+    size_t count = fread(buf,1,BUFSIZ,fd);
+    size_t i;
+    for (i=0;i<count;i++) {
+      // display non printable
+      if (!isgraph(buf[i]) && buf[i]!='\t' && buf[i]!='\n' && non_print) {
+        escape_string(buf[i]);
+      }
+      // display new line
+      // count blank lines
+      // count lines
+      // squeeze blank lines
+      else if (buf[i]=='\n') {
+        if (display_ends) putchar('$');
+        if (blanklines_cur<2) putchar('\n');
+        else blanklines++;
+        blanklines_cur++;
+        print_line(buf[i+1]);
+        lines++;
+      }
+      // display tab
+      else if (buf[i]=='\t' && display_tabs) {
+        puts("^I");
+      }
+      else putchar(buf[i]);
+      // reset current cound of blank lines
+      if (buf[i]!='\n' && buf[i]!='\r') blanklines_cur = 0;
+    }
+  }
+}
+
+int main(int argc,char *argv[]) {
+  int c,i;
+  non_print = 0;
+  display_ends = 0;
+  display_tabs = 0;
+  squeeze_blank = 0;
+  number = NO;
+  blanklines_cur = 0;
+  blanklines = 0;
+  lines = 0;
+
+  while ((c = getopt(argc,argv,":AbeEnstTuhv"))!=-1) {
+    switch(c) {
+      case 'A':
+        non_print = 1;
+        display_ends = 1;
+        display_tabs = 1;
+        break;
+      case 'b':
+        number = NONBLANK;
+        break;
+      case 'e':
+        non_print = 1;
+        display_ends = 1;
+        break;
+      case 'E':
+        display_ends = 1;
+        break;
+      case 'n':
+        number = ALL;
+        break;
+      case 's':
+        squeeze_blank = 1;
+        break;
+      case 't':
+        non_print = 1;
+        display_tabs = 1;
+        break;
+      case 'T':
+        display_tabs = 1;
+        break;
+      case 'u':
+        // ignored
+        break;
+      case 'v':
+        non_print = 1;
+        break;
+      case 'h':
+        usage(argv[0],0);
+        break;
+      case 'V': /// @todo FIXME
+        printf("cat v0.1\n(c) 2008 Janosch Graef\n");
+        return 0;
+        break;
+      case '?':
+        fprintf(stderr,"Unrecognized option: -%c\n", optopt);
+        usage(argv[0],1);
+        break;
+    }
+  }
+
+  for (i=optind;i<argc;i++) {
+    FILE *fd = strcmp(argv[i],"-")==0?stdin:fopen(argv[i],"r");
+    if (fd!=NULL) {
+      cat(fd);
+      fclose(fd);
+    }
+    else perror("fopen");
+  }
+
+  return 0;
+}

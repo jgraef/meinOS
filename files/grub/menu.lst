@@ -1,0 +1,27 @@
+root (cd)
+
+color light-blue/black light-cyan/blue
+gfxmenu /grub/menu.gfx
+
+default 0
+timeout 5
+
+title meinOS - kernel 2
+kernel /kernel2
+module /bin/init
+module /bin/vfs
+module /bin/devfs
+module /bin/dma
+module /bin/ata
+module /bin/cdrom
+module /bin/iso9660
+module /bin/pci
+module /bin/psdev
+module /bin/ramdisk
+module /bin/console
+module /bin/cirrus
+boot
+
+title Memory Test
+kernel /memtest.bin
+boot
