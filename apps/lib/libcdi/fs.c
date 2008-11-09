@@ -277,6 +277,14 @@ static mode_t cdi_fs_class2mode(struct cdi_fs_res *res) {
   return mode;
 }
 
+static size_t cdi_fs_filesize(struct cdi_fs_filesystem *filesystem,struct cdi_fs_res *res) {
+  if (res->res->meta_read!=NULL) {
+    struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,res);
+    return res->res->meta_read(&stream,CDI_FS_META_SIZE);
+  }
+  else return 0;
+}
+
 // Wrapper functions ////
 
 static int fs_open(int fsid,int oflag,int shmid) {
@@ -294,7 +302,7 @@ static int fs_open(int fsid,int oflag,int shmid) {
             file->res = res;
             file->fh = filesystem->last_fh++;
             file->type = FILE_REG;
-            file->pos = 0;
+            file->pos = (oflag&O_APPEND)?cdi_fs_filesize(filesystem,res):0;
             file->shmbuf = shmbuf;
             cdi_list_push(filesystem->files,file);
             return file->fh;
@@ -395,13 +403,7 @@ static off_t fs_seek(int fsid,int fh,off_t off,int whence) {
       if (file->type==FILE_REG) {
         if (whence==SEEK_SET) file->pos = off;
         else if (whence==SEEK_CUR) file->pos += off;
-        else if (whence==SEEK_END) {
-          if (file->res->res->meta_read!=NULL) {
-            struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,file->res);
-            file->pos = file->res->res->meta_read(&stream,CDI_FS_META_SIZE)+off;
-          }
-          else return -EINVAL;
-        }
+        else if (whence==SEEK_END) file->pos = cdi_fs_filesize(filesystem,file->res)+off;
         else return -EINVAL;
         return (off_t)file->pos;
       }
@@ -607,21 +609,24 @@ static int fs_mknod(int fsid,char *path,mode_t mode,dev_t dev) {
   fprintf(stderr,"fs_mknod(%d,%s,%d,%d)\n",fsid,path,mode,dev);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
-    char *filename;
-    struct cdi_fs_res *res = cdi_fs_parentres(filesystem,path,&filename);
-    if (res!=NULL) {
-      if (res->dir!=NULL) {
-        struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,NULL);
-        if (!res->dir->create_child(&stream,filename,res)) return -cdi_fs_error2errno(stream.error);
-        if (cdi_fs_loadres(&stream)==-1) return -cdi_fs_error2errno(stream.error);
-        stream.res->type = 0;
-        if (!stream.res->res->assign_class(&stream,cdi_fs_mode2class(mode,&(stream.res->type)))) return -cdi_fs_error2errno(stream.error);
-        /// @todo ACL
-        return cdi_fs_unloadres(&stream)==0?0:-cdi_fs_error2errno(stream.error);
+    if (cdi_fs_path2res(filesystem,path)==NULL) {
+      char *filename;
+      struct cdi_fs_res *res = cdi_fs_parentres(filesystem,path,&filename);
+      if (res!=NULL) {
+        if (res->dir!=NULL) {
+          struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,NULL);
+          if (!res->dir->create_child(&stream,filename,res)) return -cdi_fs_error2errno(stream.error);
+          if (cdi_fs_loadres(&stream)==-1) return -cdi_fs_error2errno(stream.error);
+          stream.res->type = 0;
+          if (!stream.res->res->assign_class(&stream,cdi_fs_mode2class(mode,&(stream.res->type)))) return -cdi_fs_error2errno(stream.error);
+          /// @todo ACL
+          return cdi_fs_unloadres(&stream)==0?0:-cdi_fs_error2errno(stream.error);
+        }
+        else return -ENOTDIR;
       }
-      else return -ENOTDIR;
+      else return -ENOENT;
     }
-    else return -ENOENT;
+    else return -EEXIST;
   }
   else return -EINVAL;
 }

@@ -103,6 +103,7 @@ int main(int argc,char *argv[]) {
     "psdev",
     "console",
     //"cirrus",
+    "tests.meinos",
     NULL
   };
 
@@ -130,6 +131,8 @@ int main(int argc,char *argv[]) {
       init_link("/bin");
       init_link("/etc");
       init_link("/usr");
+      // create /tmp
+      mkdir("/tmp",0777);
     }
   }
 

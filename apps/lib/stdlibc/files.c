@@ -231,7 +231,7 @@ int mknod(const char *path,mode_t mode,dev_t dev) {
   struct fslist_item *fs = fsbypath(cpath,1);
   char *func;
 
-  if (fs) {
+  if (fs!=NULL) {
     asprintf(&func,"fs_mknod_%x",fs->pid);
     res = rpc_call(func,0,fs->id,cpath,mode&(~creation_mask),dev);
     free(func);
@@ -284,7 +284,7 @@ int open(const char *path,int oflag,...) {
   if (fh==0) {
     if (oflag&O_CREAT) {
       oflag &= ~O_CREAT;
-      int res = mknod(path,va_arg(args,mode_t),S_IFREG);
+      int res = mknod(path,va_arg(args,mode_t)|S_IFREG,0);
       if (res==-1 && errno!=EEXIST) fh = -errno;
     }
     int shmid = shmget(IPC_PRIVATE,SHMMEM_SIZE,0);

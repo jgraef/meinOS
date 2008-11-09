@@ -115,7 +115,7 @@ static void keyboard_irq(void *null) {
 
   // get scancode
   scancode = keyboard_read();
-  fprintf(stderr,"<0x%02x>\n",scancode);
+  fprintf(stderr,"Scancode: 0x%02x\n",scancode&0xFF);
   released = scancode&0x80;
   scancode &= 0x7F;
 
@@ -142,7 +142,7 @@ static void keyboard_irq(void *null) {
     wchar_t chr = scancode2wchr(scancode);
     if (chr>0x7F) printf("TODO: Wide characters (%s %d)\n",__FILE__,__LINE__);
     else if (chr!=0) {
-      fprintf(stderr,"keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
+      //fprintf(stderr,"keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
       keyboard.buffer.buffer[keyboard.buffer.wpos++] = chr;
     }
   }

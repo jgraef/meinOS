@@ -48,6 +48,9 @@ FILE *fdopen(int fh,const char *mode);
 int fileno(FILE *stream);
 FILE *fopen(const char *name,const char *mode);
 int fflush(FILE *stream);
+int fgetpos(FILE *stream,fpos_t *pos);
+int fsetpos(FILE *stream,fpos_t *pos);
+FILE *freopen(const char *filename,const char *mode,FILE *stream);
 
 int rename(const char *old, const char *new);
 
@@ -75,7 +78,7 @@ int vsscanf(const char *buffer,const char *format,va_list ap);
 
 
 
-static inline int remove(const char *path) {
+static __inline__ int remove(const char *path) {
   return unlink(path);
 }
 
@@ -85,7 +88,7 @@ static inline int remove(const char *path) {
  *  @param stream Stream
  *  @return Char written
  */
-static inline int fputc(int c,FILE *stream) {
+static __inline__ int fputc(int c,FILE *stream) {
   char chr = c;
   return _fwrite(&chr,1,stream)==1?c:EOF;
 }
@@ -96,7 +99,7 @@ static inline int fputc(int c,FILE *stream) {
  *  @param stream Stream
  *  @return How many bytes written
  */
-static inline int fputs(const char *s,FILE *stream) {
+static __inline__ int fputs(const char *s,FILE *stream) {
   return _fwrite(s,strlen(s),stream);
 }
 
@@ -108,7 +111,7 @@ static inline int fputs(const char *s,FILE *stream) {
  *  @param stream Stream to write to
  *  @return How many elements written
  */
-static inline size_t fwrite(const void *ptr,size_t size,size_t nelem,FILE *stream) {
+static __inline__ size_t fwrite(const void *ptr,size_t size,size_t nelem,FILE *stream) {
   return _fwrite(ptr,size*nelem,stream);
 }
 
@@ -119,7 +122,7 @@ static inline size_t fwrite(const void *ptr,size_t size,size_t nelem,FILE *strea
  *  @param whence Whence
  *  @return Success?
  */
-static inline int fseeko(FILE *stream,off_t offset,int whence) {
+static __inline__ int fseeko(FILE *stream,off_t offset,int whence) {
   fflush(stream);
   return lseek(stream->fh,offset,whence)==offset?0:-1;
 }
@@ -131,7 +134,7 @@ static inline int fseeko(FILE *stream,off_t offset,int whence) {
  *  @param whence Whence
  *  @return Success?
  */
-static inline int fseek(FILE *stream,long offset,int whence) {
+static __inline__ int fseek(FILE *stream,long offset,int whence) {
   return fseeko(stream,(off_t)offset,whence);
 }
 
@@ -140,7 +143,7 @@ static inline int fseek(FILE *stream,long offset,int whence) {
  *  @param stream Stream
  *  @return Offset
  */
-static inline off_t ftello(FILE *stream) {
+static __inline__ off_t ftello(FILE *stream) {
   return lseek(stream->fh,0,SEEK_CUR);
 }
 
@@ -149,7 +152,7 @@ static inline off_t ftello(FILE *stream) {
  *  @param stream Stream
  *  @return Offset
  */
-static inline long ftell(FILE *stream) {
+static __inline__ long ftell(FILE *stream) {
   fflush(stream);
   return (long)ftello(stream);
 }
@@ -158,7 +161,7 @@ static inline long ftell(FILE *stream) {
  * Resets the file position idicator
  *  @param stream Stream
  */
-static inline void rewind(FILE *stream) {
+static __inline__ void rewind(FILE *stream) {
   fseek(stream,0,SEEK_SET);
 }
 
@@ -168,7 +171,7 @@ static inline void rewind(FILE *stream) {
  *  @param stream Stream
  *  @return Character
  */
-static inline int putc(int c,FILE *stream) {
+static __inline__ int putc(int c,FILE *stream) {
   return fputc(c,stream);
 }
 
@@ -178,7 +181,7 @@ static inline int putc(int c,FILE *stream) {
  *  @param stream Stream
  *  @return Character
  */
-static inline int putchar(int c) {
+static __inline__ int putchar(int c) {
   return fputc(c,stdout);
 }
 
@@ -187,7 +190,7 @@ static inline int putchar(int c) {
  *  @param stream Stream
  *  @return Character
  */
-static inline int fgetc(FILE *stream) {
+static __inline__ int fgetc(FILE *stream) {
   char c = EOF;
   _fread(&c,1,stream);
   return c;
@@ -198,7 +201,7 @@ static inline int fgetc(FILE *stream) {
  *  @param s Buffer for string
  *  @return
  */
-static inline char* gets(char *s) {
+static __inline__ char* gets(char *s) {
   return fgets(s,BUFSIZ,stdin);
 }
 
@@ -207,7 +210,7 @@ static inline char* gets(char *s) {
  *  @param stream Stream
  *  @return Character
  */
-static inline int getc(FILE *stream) {
+static __inline__ int getc(FILE *stream) {
   return fgetc(stream);
 }
 
@@ -215,7 +218,7 @@ static inline int getc(FILE *stream) {
  * Gets a character from stdin
  *  @return Character
  */
-static inline int getchar(void) {
+static __inline__ int getchar(void) {
   return fgetc(stdin);
 }
 
@@ -227,7 +230,7 @@ static inline int getchar(void) {
  *  @param stream Stream to read from
  *  @return How many elements read
  */
-static inline size_t fread(void *ptr,size_t size,size_t nitems,FILE *stream) {
+static __inline__ size_t fread(void *ptr,size_t size,size_t nitems,FILE *stream) {
   return _fread(ptr,size*nitems,stream);
 }
 
@@ -235,7 +238,7 @@ static inline size_t fread(void *ptr,size_t size,size_t nitems,FILE *stream) {
  * Writes error message to stderr
  *  @param str Additional error text (can be NULL)
  */
-static inline void perror(const char *str) {
+static __inline__ void perror(const char *str) {
   fprintf(stderr,"%s; %s\n",strerror(errno),str!=NULL?str:"");
 }
 
