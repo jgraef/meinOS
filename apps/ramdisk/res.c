@@ -158,7 +158,6 @@ int ramdisk_fs_res_remove_class(struct cdi_fs_stream* stream,
 
     switch (class) {
         case CDI_FS_CLASS_FILE:
-            free(res->buffer);
             res->size = 0;
             res->res.file = NULL;
             break;
@@ -168,7 +167,6 @@ int ramdisk_fs_res_remove_class(struct cdi_fs_stream* stream,
             break;
 
         case CDI_FS_CLASS_LINK:
-            free(res->buffer);	// In res->buffer steht der Pfad zum Ziel.
             res->res.link = NULL;
             break;
 
@@ -207,17 +205,16 @@ int ramdisk_fs_res_remove(struct cdi_fs_stream* stream)
         }
     }
 
-    ramdisk_fs_res_destroy(res);
-
-    return 1;
+    return ramdisk_fs_res_destroy(res);
 }
 
 int ramdisk_fs_res_destroy(struct ramdisk_fs_res* res)
 {
-    struct ramdisk_fs_res *child;
-    free(res->res.name);
+    if (cdi_list_size(res->res.children)>0) return 0;
+
     free(res->buffer);
-    while ((child = cdi_list_pop(res->res.children))) ramdisk_fs_res_destroy(child);
+    free(res->res.name);
+    free(res->res.link_path);
     cdi_list_destroy(res->res.children);
     free(res);
 

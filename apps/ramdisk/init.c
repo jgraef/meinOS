@@ -36,8 +36,6 @@
 #include "ramdisk_cdi.h"
 #include "cdi/lists.h"
 #include <stdio.h>
-// FIXME CDI kennt eigentlich keine POSIX-Funktionen
-#include <time.h>
 
 int ramdisk_fs_init(struct cdi_fs_filesystem* cdi_fs)
 {
@@ -50,13 +48,24 @@ int ramdisk_fs_init(struct cdi_fs_filesystem* cdi_fs)
     root_res->res.dir = &ramdisk_fs_dir;
     root_res->res.loaded = 1;
     root_res->res.children = cdi_list_create();
-    root_res->creation_time = time(NULL);
+    root_res->creation_time = 0;
 
     cdi_fs->root_res = (struct cdi_fs_res*) root_res;
     return 1;
 }
 
+static void destroy_res(struct ramdisk_fs_res *res)
+{
+    struct ramdisk_fs_res *child;
+
+    while ((child = cdi_list_pop(res->res.children))) {
+        destroy_res(child);
+    }
+    ramdisk_fs_res_destroy(res);
+}
+
 int ramdisk_fs_destroy(struct cdi_fs_filesystem* fs)
 {
-    return ramdisk_fs_res_destroy((struct ramdisk_fs_res*)fs->root_res);
+    destroy_res((struct ramdisk_fs_res*)fs->root_res);
+    return 0;
 }
