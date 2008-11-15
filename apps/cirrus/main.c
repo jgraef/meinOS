@@ -72,12 +72,9 @@ static void cirrus_driver_init(void)
     cirrus_driver.display_clear = cirrus_display_clear;
     cirrus_driver.display_set_mode = cirrus_display_set_mode;
     cirrus_driver.display_get_mode_list = cirrus_display_get_mode_list;
-    /// @todo assignment from incompatible pointer type
-    cirrus_driver.bitmap_create = cirrus_bitmap_create;
-    /// @todo assignment from incompatible pointer type
-    cirrus_driver.bitmap_destroy = cirrus_bitmap_destroy;
-    /// @todo assignment from incompatible pointer type
-    cirrus_driver.bitmap_set_usage_hint = cirrus_bitmap_set_usage_hint;
+    //cirrus_driver.bitmap_create = cirrus_bitmap_create;
+    //cirrus_driver.bitmap_destroy = cirrus_bitmap_destroy;
+    //cirrus_driver.bitmap_set_usage_hint = cirrus_bitmap_set_usage_hint;
     cirrus_driver.set_raster_op = cirrus_set_raster_op;
     cirrus_driver.set_target = cirrus_set_target;
     cirrus_driver.draw_line = cirrus_draw_line;
@@ -86,8 +83,7 @@ static void cirrus_driver_init(void)
     cirrus_driver.copy_screen = cirrus_copy_screen;
     cirrus_driver.draw_bitmap = cirrus_draw_bitmap;
     cirrus_driver.draw_bitmap_part = cirrus_draw_bitmap_part;
-    /// @todo assignment from incompatible pointer type
-    cirrus_driver.draw_dot = cirrus_draw_dot;
+    //cirrus_driver.draw_dot = cirrus_draw_dot;
     TODO("Set rest of display handlers");
 
     // Find Cirrus cards

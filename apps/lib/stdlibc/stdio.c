@@ -1,3 +1,21 @@
+/*
+    meinOS - A unix-like x86 microkernel operating system
+    Copyright (C) 2008  Janosch Gräf <janosch.graef@gmx.net>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdarg.h>
@@ -15,7 +33,7 @@ static unsigned int tmp_num;
 static FILE *create_stream(int fh,int oflag) {
   FILE *stream = malloc(sizeof(FILE));
   stream->fh = fh;
-  stream->mode = oflag;
+  stream->oflag = oflag;
   stream->error = 0;
   stream->eof = 0;
   stream->buf = malloc(BUFSIZ);
@@ -44,18 +62,18 @@ void stdio_init() {
 }
 
 /**
- * Converts a mode string to a mode number
- *  @param mode Mode string
+ * Converts a oflag string to a oflag number
+ *  @param oflag Mode string
  *  @return Mode number
  *  @todo fix
  */
-static int mode_str2num(const char *mode) {
+static int oflag_str2num(const char *oflag) {
   int m;
-  if (mode[0]=='r') m = O_RDONLY;
-  else if (mode[0]=='w') m = O_CREAT|O_WRONLY|O_TRUNC;
-  else if (mode[0]=='a') m = O_CREAT|O_APPEND|O_TRUNC;
+  if (oflag[0]=='r') m = O_RDONLY;
+  else if (oflag[0]=='w') m = O_CREAT|O_WRONLY|O_TRUNC;
+  else if (oflag[0]=='a') m = O_CREAT|O_APPEND|O_TRUNC;
   else m = -1;
-  if (mode[1]=='+') m |= O_RDONLY|O_WRONLY;
+  if (oflag[1]=='+') m |= O_RDONLY|O_WRONLY;
   return m;
 }
 
@@ -126,11 +144,11 @@ int fclose(FILE *stream) {
 /**
  * Opens a file with Filedescriptor
  *  @param fh Filedescriptor
- *  @param mode Mode
+ *  @param oflag Mode
  *  @return Filehandle
  */
-FILE *fdopen(int fh,const char *mode) {
-  return create_stream(fh,mode_str2num(mode));
+FILE *fdopen(int fh,const char *oflag) {
+  return create_stream(fh,oflag_str2num(oflag));
 }
 
 /**
@@ -149,11 +167,12 @@ int fileno(FILE *stream) {
 /**
  * Opens a file
  *  @param name Path to file
- *  @param mode Mode
+ *  @param oflag Mode
  *  @return Filehandle
+ *  @todo truncate
  */
-FILE *fopen(const char *name,const char *mode) {
-  int m = mode_str2num(mode);
+FILE *fopen(const char *name,const char *oflag) {
+  int m = oflag_str2num(oflag);
   int fh = open(name,m,0777);
   if (fh>=0) {
     //if ((m&O_TRUNC)==O_TRUNC) ftruncate(fh,0);
@@ -207,18 +226,26 @@ int puts(const char *s) {
  *  @return How many elements written
  */
 size_t _fwrite(const void *ptr,size_t size,FILE *stream) {
+  if (size==0) return 0;
   if (check_stream(stream)) {
-    if (stream->dobuf /*&& size<BUFSIZ*/) {
-      if (stream->bufcur+size>stream->buf+BUFSIZ) fflush(stream);
-      if (size>BUFSIZ) size = BUFSIZ;
-      memcpy(stream->bufcur,ptr,size);
-      stream->bufcur += size;
-      if (memchr(ptr,'\n',size)!=NULL) fflush(stream);
-      return size;
+    if (stream->oflag&O_WRONLY) {
+      if (stream->dobuf /*&& size<BUFSIZ*/) {
+        if (stream->bufcur+size>stream->buf+BUFSIZ) fflush(stream);
+        if (size>BUFSIZ) size = BUFSIZ;
+        memcpy(stream->bufcur,ptr,size);
+        stream->bufcur += size;
+        if (memchr(ptr,'\n',size)!=NULL) fflush(stream);
+        return size;
+      }
+      else {
+        int ret = write(stream->fh,ptr,size);
+        if (ret>0 && ret<(stream->bufcur-stream->buf)) stream->eof = 1;
+        return ret;
+      }
     }
     else {
-      int ret = write(stream->fh,ptr,size);
-      return ret==-1?0:ret;
+      stream->eof = 1;
+      return 0;
     }
   }
   else {
@@ -294,14 +321,14 @@ int fsetpos(FILE *stream,fpos_t *pos) {
   }
 }
 
-FILE *freopen(const char *filename,const char *mode,FILE *stream) {
+FILE *freopen(const char *filename,const char *oflag,FILE *stream) {
   if (check_stream(stream)) {
     fflush(stream);
     close(stream->fh);
-    stream->mode = mode_str2num(mode);
+    stream->oflag = oflag_str2num(oflag);
     stream->eof = 0;
     stream->error = 0;
-    stream->fh = open(filename,stream->mode);
+    stream->fh = open(filename,stream->oflag);
     return stream;
   }
   else {

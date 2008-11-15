@@ -5,7 +5,7 @@
 
 char *progname;
 
-static usage(void)
+static void usage(void)
 {
 	fprintf(stderr, "Usage: %s pid\n", progname);
 	exit(1);
@@ -29,5 +29,5 @@ int main(int argc, char *argv[])
 		perror("kill");
 		exit(-1);
 	}
-	exit(0);
+	return 0;
 }

@@ -4,7 +4,7 @@
 
 char *progname;
 
-static usage(void)
+static void usage(void)
 {
 	fprintf(stderr, "Usage: %s name {b|c|p}\n", progname);
 	exit(1);
@@ -12,8 +12,7 @@ static usage(void)
 
 int main(int argc, char *argv[])
 {
-	char *name, *type, typec, *endp;
-	unsigned int major, minor;
+	char *name, *type, typec;
 	mode_t mode;
 
 	progname = *argv++;
@@ -50,5 +49,5 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	exit(0);
+	return 0;
 }

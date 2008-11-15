@@ -5,7 +5,7 @@
 
 char *progname;
 
-static usage(void)
+static void usage(void)
 {
 	fprintf(stderr, "Usage: %s link\n", progname);
 	exit(1);
@@ -34,5 +34,5 @@ int main(int argc, char *argv[])
 	}
 	printf("%s\n", link);
 
-	exit(0);
+	return 0;
 }

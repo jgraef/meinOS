@@ -1,3 +1,21 @@
+/*
+    meinOS - A unix-like x86 microkernel operating system
+    Copyright (C) 2008  Janosch Gräf <janosch.graef@gmx.net>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 global isr00,isr01,isr02,isr03,isr04,isr05,isr06,isr07,isr08,isr09,isr0A,isr0B,isr0C,isr0D,isr0E,isr0F
 global isr10,isr11,isr12,isr13,isr14,isr15,isr16,isr17,isr18,isr19,isr1A,isr1B,isr1C,isr1D,isr1E,isr1F
 global isr20,isr21,isr22,isr23,isr24,isr25,isr26,isr27,isr28,isr29,isr2A,isr2B,isr2C,isr2D,isr2E,isr2F
