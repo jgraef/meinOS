@@ -31,7 +31,7 @@
 
 #define CDROM_BUFSIZE PAGE_SIZE
 
-#define CDROM_R  0
+#define CDROM_R 0
 #define CDROM_W 1
 
 #define CDROM_TYPE 0x05

@@ -47,6 +47,7 @@ uint16_t biosint_call(unsigned int *meminfo,size_t meminfo_count,uint16_t ax,uin
   proc->registers.eip = IVT_GET_IP(0x10);
   proc->registers.cs = IVT_GET_CS(0x10);
 
+  kprintf("Process: %s\n",proc_current->name);
   kprintf("AX: 0x%x\n",proc->registers.eax);
   kprintf("BX: 0x%x\n",proc->registers.ebx);
   kprintf("CX: 0x%x\n",proc->registers.ecx);

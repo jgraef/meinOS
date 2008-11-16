@@ -120,7 +120,6 @@ int main(int argc,char *argv[]) {
     "psdev",
     "console",
     //"cirrus",
-    "tests.meinos",
     NULL
   };
 
