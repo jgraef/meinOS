@@ -20,8 +20,8 @@
 #include <stdint.h>
 #include <wchar.h>
 
-#define HEIGHT 100
-#define HAS_SHIFT 1
+#define HEIGHT     0x100
+#define HAS_SHIFT  1
 #define HAS_ALTCAP 1
 
 wchar_t KEYBOARD_LAYOUT[0x100][3] = {
