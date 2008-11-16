@@ -30,7 +30,6 @@
 #include <cpu.h>
 #include <syscall.h>
 #include <interrupt.h>
-#include <elf.h>
 
 /**
  * Initializes process management
@@ -54,8 +53,6 @@ int proc_init() {
   if (syscall_create(SYSCALL_PROC_EXIT,proc_exit,1)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_ABORT,proc_abort,0)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_STOP,proc_stop,0)==-1) return -1;
-  if (syscall_create(SYSCALL_PROC_FORK,proc_fork_syscall,1)==-1) return -1;
-  if (syscall_create(SYSCALL_PROC_EXEC,proc_exec,5)==-1) return -1;
   return 0;
 }
 
@@ -498,76 +495,4 @@ proc_t *proc_fork(proc_t *proc) {
   proc_t *new = proc_vfork(proc);
   new->addrspace = memuser_clone_addrspace(new,proc->addrspace);
   return new;
-}
-
-/**
- * Forks a process
- *  @param start Entrypoint for new process
- *  @return PID of new process
- */
-pid_t proc_fork_syscall(void *start) {
-  proc_t *new = proc_fork(proc_current);
-  new->registers.eip = (uint32_t)start;
-  new->registers.eax = 0;
-  return new->pid;
-}
-
-/**
- * Executes a new process
- *  @param elf_buf ELF file
- *  @param elf_size Size of ELF file
- *  @param var New var
- *  @param do_fork Whether to fork
- *  @return Success?
- */
-int proc_exec(char *_name,void *elf_buf,size_t elf_size,int var,int do_fork) {
-  proc_t *new;
-  void *entrypoint;
-  void *elf_map;
-  char *name;
-
-  if (_name!=NULL) name = strdup(_name);
-  else name = NULL;
-
-  if (((uintptr_t)elf_buf)%PAGE_SIZE!=0) return -1;
-
-  if (do_fork) new = proc_vfork(proc_current);
-  else new = proc_current;
-
-  // map ELF file in kernel address space
-  // avoids that when addrspace gets destroyed ELF file gets freed
-  size_t elf_pages = (elf_size-1)/PAGE_SIZE+1;
-  elf_map = memkernel_findvirt(elf_pages);
-  size_t i;
-
-  for (i=0;i<elf_size;i+=PAGE_SIZE) {
-    paging_map(elf_map+i,paging_getphysaddr(elf_buf+i),0,0);
-    paging_unmap(elf_buf+i);
-    memuser_free(new->addrspace,elf_buf+i);
-    memuser_syncpds(elf_map+i);
-  }
-
-  if (!do_fork) memuser_destroy_addrspace(new->addrspace);
-memuser_debug++;
-  new->addrspace = memuser_create_addrspace(new);
-  entrypoint = elf_load(new->addrspace,elf_map,elf_size);
-kprintf("HELLO\n"); while (1);
-memuser_debug--;
-  if (entrypoint==NULL) panic("Failed loading ELF\n");
-  new->registers.eip = (uint32_t)entrypoint;
-  new->registers.esp = (uint32_t)memuser_create_stack(new->addrspace);
-  new->var = var;
-  if (name!=NULL) {
-    free(new->name);
-    new->name = name;
-  }
-  // free ELF file
-  //for (i=0;i<elf_size;i+=PAGE_SIZE) memphys_free(paging_unmap(elf_map+i));
-
-  if (!do_fork) *interrupt_curregs.eip = new->registers.eip;
-  if (!do_fork) *interrupt_curregs.esp = new->registers.esp;
-  memuser_load_addrspace(new->addrspace);
-
-  if (!do_fork) proc_shedule();
-  return 0;
 }

@@ -67,6 +67,7 @@ static int keyboard_layout_load(const char *filename) {
     read(fh,&(keyboard.layout.height),4);
     keyboard.layout.table = calloc(keyboard.layout.width*keyboard.layout.height,sizeof(wchar_t));
     read(fh,keyboard.layout.table,keyboard.layout.width*keyboard.layout.height*sizeof(wchar_t));
+    fprintf(stderr,"console: keyboard: Layout loaded: %s (width=%d; height=%d; shift=%s; altcap=%s)\n",filename,keyboard.layout.width,keyboard.layout.height,keyboard.layout.has_shift?"yes":"no",keyboard.layout.has_altcap?"yes":"no");
     close(fh);
     return 0;
   }
@@ -84,7 +85,9 @@ static int keyboard_layout_load(const char *filename) {
 static wchar_t scancode2wchr(int scancode) {
   if (keyboard.layout.table==NULL) return 0;
   // find right column in table
-  int col = (keyboard.shift && keyboard.layout.has_shift?1:0)+(keyboard.altcap && keyboard.layout.has_altcap?1:0);
+  int col = 0;
+  if (keyboard.shift && keyboard.layout.has_shift) col = 1;
+  else if (keyboard.altcap && keyboard.layout.has_altcap) col = 2;
   //if (col>=keyboard.layout.width) col = keyboard.layout.width-1;
   // find right row in table
   int row = scancode;
@@ -109,19 +112,6 @@ ssize_t onread(devfs_dev_t *dev,void *buffer,size_t count,off_t offset) {
   return count;
 }
 
-static char keyboard_read() {
-  if (inb(KEYBOARD_PORT_STATUS)&1) return inb(KEYBOARD_PORT_DATA);
-  else return 0;
-}
-
-/*static void keyboard_write(char byte) {
-  if ((inb(KEYBOARD_PORT_STATUS)&6)==4) return outb(KEYBOARD_PORT_DATA,byte);
-}
-
-static void keyboard_cmd(char byte) {
-  if ((inb(KEYBOARD_PORT_STATUS)&6)==4) return outb(KEYBOARD_PORT_STATUS,byte);
-}*/
-
 /**
  * Handles Keyboard IRQ
  *  @param null Unused
@@ -131,37 +121,37 @@ static void keyboard_cmd(char byte) {
 static void keyboard_irq(void *null) {
   int released,scancode;
 
-  // get scancode
-  scancode = keyboard_read();
-  fprintf(stderr,"Scancode: 0x%02x\n",scancode&0xFF);
-  released = scancode&0x80;
-  scancode &= 0x7F;
+  while (inb(KEYBOARD_PORT_STATUS)&1) {
+    // get scancode
+    scancode = inb(KEYBOARD_PORT_DATA);
+    if (scancode!=0xE0) {
+      released = scancode&0x80;
+      scancode &= 0x7F;
+    }
 
-  // check for escaped key
-  if (keyboard.escape) {
-    scancode |= 0x80;
-    keyboard.escape = 0;
-  }
-  if (scancode==0xE0) {
-    keyboard.escape = 1;
-    return;
-  }
+    // check for escaped key
+    if (keyboard.escape) {
+      scancode |= 0x80;
+      keyboard.escape = 0;
+    }
+    if (scancode==0xE0) {
+      keyboard.escape = 1;
+      continue;
+    }
 
-  // if shift is pressed/released
-  if (IS_SHIFT(scancode)) keyboard.shift = !released;
-  // if alternative capital is pressed/released
-  else if (IS_ALTCAP(scancode)) {
-    fprintf(stderr,"HELLO\n");
-    keyboard.altcap = !released;
-  }
+    // if shift is pressed/released
+    if (IS_SHIFT(scancode)) keyboard.shift = !released;
+    // if alternative capital is pressed/released
+    else if (IS_ALTCAP(scancode)) keyboard.altcap = !released;
 
-  // write key into buffer
-  else if (!released) {
-    wchar_t chr = scancode2wchr(scancode);
-    if (chr>0x7F) printf("TODO: Wide characters (%s %d)\n",__FILE__,__LINE__);
-    else if (chr!=0) {
-      //fprintf(stderr,"keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
-      keyboard.buffer.buffer[keyboard.buffer.wpos++] = chr;
+    // write key into buffer
+    else if (!released) {
+      wchar_t chr = scancode2wchr(scancode);
+      if (chr>0x7F) fprintf(stderr,"TODO: Wide characters (%s %d)\n",__FILE__,__LINE__);
+      else if (chr!=0) {
+        //fprintf(stderr,"keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
+        keyboard.buffer.buffer[keyboard.buffer.wpos++] = chr;
+      }
     }
   }
 }
