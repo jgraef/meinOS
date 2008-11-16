@@ -56,14 +56,6 @@ int usleep(useconds_t usec) {
   }
 }
 
-static pid_t child_entry() {
-  return 0;
-}
-
-pid_t fork() {
-  return syscall_call(SYSCALL_PROC_FORK,1,child_entry);
-}
-
 /*static void alarm_handler(int sig) {
   raise(SIGALRM);
 }*/

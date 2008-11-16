@@ -71,45 +71,43 @@
 #define SYSCALL_RPC_LIST            39
 
 // Process
-#define SYSCALL_PROC_FORK           40
-#define SYSCALL_PROC_GETPID         41
-#define SYSCALL_PROC_GETUID         42
-#define SYSCALL_PROC_GETGID         43
-#define SYSCALL_PROC_SETUID         44
-#define SYSCALL_PROC_SETGID         45
-#define SYSCALL_PROC_GETPARENT      46
-#define SYSCALL_PROC_GETNAME        47
-#define SYSCALL_PROC_GETPIDBYNAME   48
-#define SYSCALL_PROC_GETVAR         49
-#define SYSCALL_PROC_EXIT           50
-#define SYSCALL_PROC_ABORT          51
-#define SYSCALL_PROC_STOP           52
-#define SYSCALL_PROC_EXEC           53
+#define SYSCALL_PROC_GETPID         40
+#define SYSCALL_PROC_GETUID         41
+#define SYSCALL_PROC_GETGID         42
+#define SYSCALL_PROC_SETUID         43
+#define SYSCALL_PROC_SETGID         44
+#define SYSCALL_PROC_GETPARENT      45
+#define SYSCALL_PROC_GETNAME        46
+#define SYSCALL_PROC_GETPIDBYNAME   47
+#define SYSCALL_PROC_GETVAR         48
+#define SYSCALL_PROC_EXIT           49
+#define SYSCALL_PROC_ABORT          50
+#define SYSCALL_PROC_STOP           51
 
 // I/O port
-#define SYSCALL_IO_REG              54
-#define SYSCALL_IO_UNREG            55
+#define SYSCALL_IO_REG              52
+#define SYSCALL_IO_UNREG            53
 
 // Timer
-#define SYSCALL_TIME_HANDLER        56
-#define SYSCALL_TIME_SLEEP          57
-#define SYSCALL_TIME_USLEEP         58
-#define SYSCALL_TIME_GETTICKS       59
+#define SYSCALL_TIME_HANDLER        54
+#define SYSCALL_TIME_SLEEP          55
+#define SYSCALL_TIME_USLEEP         56
+#define SYSCALL_TIME_GETTICKS       57
 
 // IRQ
-#define SYSCALL_IRQ_HANDLER         60
-#define SYSCALL_IRQ_SLEEP           61
+#define SYSCALL_IRQ_HANDLER         58
+#define SYSCALL_IRQ_SLEEP           59
 
 // Signal
-#define SYSCALL_SIG_SETUP           62
-#define SYSCALL_SIG_SEND            63
+#define SYSCALL_SIG_SETUP           60
+#define SYSCALL_SIG_SEND            61
 
 // Misc
-#define SYSCALL_MISC_BIOSINT        64
+#define SYSCALL_MISC_BIOSINT        62
 
 // Debug
 /// @deprecated Only for debugging
-#define SYSCALL_PUTSN               65
-#define SYSCALL_FOURTYTWO           66
+#define SYSCALL_PUTSN               63
+#define SYSCALL_FOURTYTWO           64
 
 #endif
