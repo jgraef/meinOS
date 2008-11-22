@@ -21,6 +21,7 @@ all:
 	make -C gzip/
 	make -C utils/
 	make -C cirrus/
+	make -C fat/
 
 	#make -C joystick/
 	#make -C com/
@@ -45,6 +46,7 @@ clean:
 	make -C gzip/ clean
 	make -C utils/ clean
 	make -C cirrus/ clean
+	make -C fat/ clean
 
 	#make -C joystick/ clean
 	#make -C com/ clean
