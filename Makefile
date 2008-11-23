@@ -3,6 +3,7 @@
 CDROM = cdrom.iso
 
 all:
+	./test_meinos_xgcc.sh
 	make -C keyboard_layouts/
 	make -C lib/
 	cp -R include/* $(GCC_TOOLCHAIN)/include/
