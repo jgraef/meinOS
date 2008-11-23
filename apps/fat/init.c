@@ -26,12 +26,15 @@
 #include "cluster.h"
 
 static fat_type_t fat_type(struct fat_bootsector *bootsector) {
-  size_t rootdir_sectors = (bootsector->rootdir_max_ent*sizeof(struct fat_dirent)+(bootsector->sector_size-1))/bootsector->sector_size;
+  /*size_t rootdir_sectors = (bootsector->rootdir_max_ent*sizeof(struct fat_dirent)+(bootsector->sector_size-1))/bootsector->sector_size;
   size_t data_sectors = fat_num_sectors(bootsector)-(bootsector->reserved_sectors+rootdir_sectors+bootsector->num_fats*fat_fat_sectors(bootsector));
   size_t num_clusters = data_sectors/bootsector->cluster_size;
   if (num_clusters<4085) return FAT12;
   else if (num_clusters<65525) return FAT16;
-  else return FAT32;
+  else return FAT32;*/
+  if (bootsector->rootdir_max_ent==0) return FAT32;
+  else if (memcmp(bootsector->fat12_16.fat_type,"FAT16   ",8)==0) return FAT16;
+  else return FAT12;
 }
 
 int fat_fs_init(struct cdi_fs_filesystem *fs) {
@@ -60,8 +63,8 @@ int fat_fs_init(struct cdi_fs_filesystem *fs) {
       fat_fs->data_area = root_res->ext_data+fat_fs->bootsector->rootdir_max_ent*sizeof(struct fat_dirent);
     }
     else {
-      root_res->clusters = fat_clchain_create(fs,fat_fs->bootsector->fat32.root_cluster);
       fat_fs->data_area = fat_fat_start(fat_fs->bootsector,fat_fs->bootsector->num_fats);
+      root_res->clusters = fat_clchain_create(fs,fat_fs->bootsector->fat32.root_cluster);
     }
     root_res->filesize = 0;
     fs->root_res = (struct cdi_fs_res*)root_res;

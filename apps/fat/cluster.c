@@ -40,11 +40,7 @@ struct fat_cluster_chain *fat_clchain_create(struct cdi_fs_filesystem *fs,size_t
       clchain->clusters = realloc(clchain->clusters,cur_size*sizeof(uint64_t));
     }
 
-    if (fat_fs->data_area/fat_fs->bootsector->sector_size+((uint64_t)cur_cluster-2)*fat_fs->bootsector->cluster_size>=fat_num_sectors(fat_fs->bootsector)) {
-      debug("fat: Found illegal sector in cluster chain (#%d): %d [%d] (0x%x)%s\n",clchain->num_clusters,fat_fs->data_area/fat_fs->bootsector->sector_size+((uint64_t)cur_cluster-2)*fat_fs->bootsector->cluster_size,cur_cluster,cur_cluster==first_cluster?" (first cluster)":"");
-      debug("fat: Last sector: %d\n",clchain->clusters[clchain->num_clusters-1]/fat_fs->bootsector->sector_size);
-    }
-    else clchain->clusters[clchain->num_clusters++] = fat_fs->data_area+((uint64_t)cur_cluster-2)*fat_fs->bootsector->cluster_size*fat_fs->bootsector->sector_size;
+    clchain->clusters[clchain->num_clusters++] = fat_fs->data_area+((uint64_t)cur_cluster-2)*fat_fs->bootsector->cluster_size*fat_fs->bootsector->sector_size;
 
     size_t next_cluster;
     if (fat_fs->type==FAT12) {
@@ -64,8 +60,8 @@ struct fat_cluster_chain *fat_clchain_create(struct cdi_fs_filesystem *fs,size_t
     else if (fat_fs->type==FAT32) {
       uint32_t ent;
       fat_read(fs,fat_start+cur_cluster*4,4,&ent);
-      ent &= 0x0FFFFFFF;
-      if (ent<0x3 || ent>0xFFFFFFF7) last = 1;
+      ent &= 0xFFFFFFF;
+      if (ent<0x3 || ent>0xFFFFFF7) last = 1;
       next_cluster = ent;
     }
 
