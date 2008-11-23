@@ -1,4 +1,3 @@
-#if 1
 /*
  * Copyright (c) 2008 Antoine Kaufmann
  *
@@ -19,14 +18,14 @@
 #ifdef __LOST__
     #include "cdi.h"
     #include "cdi/misc.h"
-    #include "cdi/cache.h"
-#else
-    #include "cdi_cache.h"
 #endif
+
+#include "cdi/cache.h"
 
 
 #define INVBLKNUM (~0L)
-#define READBUF_SZ 16 /* 64 does also work */
+#define READBUF_SZ 16
+#define NUM_HINTS 4
 
 static uint64_t cache_time = 0;
 #ifdef __LOST__
@@ -99,36 +98,14 @@ struct cache {
 
 
     /** Hints fuer Positionen */
-    struct hint         hints[4];
+    struct hint         hints[NUM_HINTS];
 
     /** Zuletzt geschriebener hint-index */
     uint16_t            prev_hint;
 };
 
-/**
- * Cache-eintrag
- */
-struct entry {
-    /** Eigentlicher CDI-Cache-Eintrag */
-    struct cdi_cache_entry  entry;
 
-    /** Offset */
-    uint64_t                offset;
-
-    /** Groesse des Bereichs */
-    size_t                  size;
-
-    /** Anzahl der Blocks */
-    size_t                  block_count;
-
-    /** Pointer auf ein Array mit Blockpointern */
-    struct block**          blocks;
-
-    /** Gesperrt */
-    int                     locked;
-};
-
-
+static inline void put_hint(struct cache* cache, uint64_t block, size_t index);
 
 /**
  * Cache erstellen
@@ -150,7 +127,6 @@ struct cdi_cache* cdi_cache_create(size_t block_size, size_t blkpriv_len,
     cdi_cache_write_block_t* write_block,
     void* prv_data)
 {
-
     struct cache* cache = malloc(sizeof(*cache));
     size_t i;
 
@@ -168,16 +144,18 @@ struct cdi_cache* cdi_cache_create(size_t block_size, size_t blkpriv_len,
     cache->read_buffer_cnt = 0;
 
     cache->prev_hint = 0;
+    for (i = 0; i < NUM_HINTS; i++) {
+        put_hint(cache, (uint64_t) -1, 0);
+    }
+
 
     cache->blocks = malloc(sizeof(struct block) * cache->block_count);
     for (i = 0; i < cache->block_count; i++) {
-
         struct block* block = cache->blocks + i;
 
         block->cdi.number = INVBLKNUM;
         block->cdi.data = malloc(cache->cache.block_size);
-        if (blkpriv_len==0) block->cdi.private = NULL;
-        else block->cdi.private = malloc(blkpriv_len);
+        block->cdi.private = malloc(blkpriv_len);
 
         block->ref_count = 0;
         block->dirty = 0;
@@ -212,20 +190,19 @@ void cdi_cache_destroy(struct cdi_cache* cache)
         b = c->blocks + i;
 
         // Ungueltige Blocks ueberspringen
-        if (b->cdi.number == INVBLKNUM) {
-            continue;
-        }
+        if (b->cdi.number != INVBLKNUM) {
 
-        if (b->ref_count) {
-            printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
-                "gefunden, der einen Referenzzaehler != 0 hat (%lld)\n",
-                (unsigned long long) b->cdi.number);
-        }
+            if (b->ref_count) {
+                printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
+                    "gefunden, der einen Referenzzaehler != 0 hat (%lld)\n",
+                    (unsigned long long) b->cdi.number);
+            }
 
-        if (b->dirty) {
-            printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
-                "gefunden, der als veraendert markiert ist (%lld)\n",
-                (unsigned long long) b->cdi.number);
+            if (b->dirty) {
+                printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
+                    "gefunden, der als veraendert markiert ist (%lld)\n",
+                    (unsigned long long) b->cdi.number);
+            }
         }
 
         free(b->cdi.data);
@@ -392,6 +369,10 @@ static inline size_t get_hint(struct cache* cache, uint64_t block)
 {
     int i;
 
+    if (block == (uint64_t) -1) {
+        return -1;
+    }
+
     for (i = 0; i < sizeof(cache->hints) / sizeof(struct hint); i++) {
         if (cache->hints[i].block == block) {
             return cache->hints[i].index;
@@ -410,7 +391,7 @@ static inline size_t get_hint(struct cache* cache, uint64_t block)
 static inline void put_hint(struct cache* cache, uint64_t block, size_t index)
 {
     cache->prev_hint++;
-    cache->prev_hint %= sizeof(cache->hints) / sizeof(struct hint);
+    cache->prev_hint %= NUM_HINTS;
     cache->hints[cache->prev_hint].block = block;
     cache->hints[cache->prev_hint].index = index;
 }
@@ -617,6 +598,7 @@ static struct block* block_load(struct cache* cache, uint64_t block, int read)
             cache->read_buffer_cnt = cache->read_block(
                 (struct cdi_cache*) cache, block, READBUF_SZ,
                 cache->read_buffer, cache->prv_data);
+
             if (cache->read_buffer_cnt == 0) {
                 puts("cdi_cache Panic: Einlesen der Daten fehlgeschlagen");
                 return NULL;
@@ -628,7 +610,6 @@ static struct block* block_load(struct cache* cache, uint64_t block, int read)
 
         memcpy(b->cdi.data, cache->read_buffer + (block - bnum) * block_size,
             block_size);
-
     }
 
     return b;
@@ -715,261 +696,3 @@ void cdi_cache_block_dirty(struct cdi_cache* cache,
     struct block* b = (struct block*) block;
     b->dirty = 1;
 }
-
-
-
-
-/**
- * Cache-Eintrag erstellen
- *
- * @param offset    Position auf dem Datentraeger
- * @param size      Groesse des Bereichs
- *
- * @return Handle
- */
-struct cdi_cache_entry* cdi_cache_entry_new(struct cdi_cache* cache,
-    uint64_t offset, size_t size)
-{
-    struct entry* entry = malloc(sizeof(struct entry));
-    size_t block_size = cache->block_size;
-    uint64_t start_block = offset / block_size;
-    uint64_t end_block = (offset + size - 1) / block_size;
-
-    entry->entry.cache = cache;
-    entry->locked = 0;
-    entry->offset = offset;
-    entry->size = size;
-    entry->block_count = end_block - start_block + 1;
-    entry->blocks = calloc(sizeof(struct block*) * entry->block_count, 1);
-
-    return (struct cdi_cache_entry*) entry;
-}
-
-/**
- * Cache-Eintrag freigeben
- *
- * @param entry Handle
- */
-void    cdi_cache_entry_release(struct cdi_cache_entry* entry)
-{
-    struct entry* e = (struct entry*) entry;
-    size_t i;
-
-    if (e->locked) {
-        cdi_cache_entry_unlock(entry);
-    }
-
-    for (i = 0; i < e->block_count; i++) {
-        struct block* block = e->blocks[i];
-        if (block) {
-            block->ref_count--;
-        }
-    }
-
-    free(e);
-}
-
-/**
- * Cache-Eintrag sperren
- *
- * @param entry Handle
- */
-void    cdi_cache_entry_lock(struct cdi_cache_entry* entry)
-{
-    struct entry* e = (struct entry*) entry;
-    e->locked = 1;
-}
-
-/**
- * Cache-Eintrag entsperren
- *
- * @param entry Handle
- */
-void    cdi_cache_entry_unlock(struct cdi_cache_entry* entry)
-{
-    struct entry* e = (struct entry*) entry;
-    e->locked = 0;
-}
-
-/**
- * Cache-Eintrag als veraendert markieren
- *
- * @param entry Handle
- */
-void    cdi_cache_entry_dirty(struct cdi_cache_entry* entry)
-{
-    struct entry* e = (struct entry*) entry;
-    size_t i;
-
-    for (i = 0; i < e->block_count; i++) {
-        struct block* block = e->blocks[i];
-        block->dirty = 1;
-    }
-}
-
-
-
-/**
- * Pointer auf einen Block im Cache-Eintrag holen
- *
- * @param entry Handle
- * @param block Blocknummer relativ zum Eintrag (der Offset innerhalb des
- *              Eintrags wird nicht beruecksichtigt)
- *
- * @return Pointer auf den Block
- */
-void*   cdi_cache_entry_block(struct cdi_cache_entry* entry, size_t block)
-{
-    struct entry* e = (struct entry*) entry;
-    size_t block_size = entry->cache->block_size;
-    uint64_t dev_start_block = (e->offset) / block_size;
-
-    if (block >= e->block_count) {
-        return NULL;
-    }
-
-    if (e->blocks[block] == NULL) {
-        e->blocks[block] = get_block((struct cache*) entry->cache,
-            dev_start_block + block, 1);
-        e->blocks[block]->ref_count++;
-    }
-
-
-    return e->blocks[block]->cdi.data;
-}
-
-/**
- * Daten aus dem Cache-Eintrag lesen
- *
- * @param entry     Handle
- * @param offset    Offset relativ zum Cache-Eintrag
- * @param size      Groesse des zu lesenden Bereichs
- * @param buffer    Puffer in dem die Daten abgelegt werden sollen
- */
-int     cdi_cache_entry_read(struct cdi_cache_entry* entry, size_t offset,
-            size_t size, void* buffer)
-{
-    struct entry* e = (struct entry*) entry;
-    size_t block_size = entry->cache->block_size;
-    uint64_t dev_start_block = (e->offset + offset) / block_size;
-    size_t start_block = (e->offset + offset) / block_size - e->offset /
-        block_size;
-    size_t end_block = (e->offset + offset + size -1) / block_size - e->offset /
-        block_size;
-    size_t block_count = end_block - start_block + 1;
-    size_t i;
-    size_t bytes_done = 0;
-
-    // Nicht ueber den Eintragsrand hinauslesen
-    if ((offset + size) > e->size) {
-        return 0;
-    }
-
-    // Offset vom Block-Anfang im Cacheeintrag beruecksichtigen, falls vorhanden
-    offset += e->offset % block_size;
-
-    for (i = 0; i < block_count; i++) {
-        void* block;
-        size_t bytes = block_size;
-        size_t off = 0;
-
-        if (e->blocks[start_block + i] == NULL) {
-            e->blocks[start_block + i] = get_block((struct cache*) entry->cache,
-                dev_start_block + i, 1);
-            e->blocks[start_block + i]->ref_count++;
-        }
-
-        block = e->blocks[start_block + i]->cdi.data;
-        e->blocks[start_block + i]->access_time = ++cache_time;
-
-        // Beim ersten Durchlauf muss der Anfangsoffset beruecksichtigt werden
-        if (i == 0) {
-            off = offset % block_size;
-            bytes = block_size - off;
-        }
-
-        // Beim letzten Durchlauf muss unter umstaenden nicht mehr ein ganzer
-        // Block gelesen werden.
-        if (i == block_count - 1) {
-            bytes = size - bytes_done;
-        }
-
-        memcpy((void*) ((uintptr_t) buffer + bytes_done), (void*)
-            ((uintptr_t) block + off), bytes);
-        bytes_done += bytes;
-    }
-
-    return 1;
-}
-
-/**
- * Daten in den Cache-Eintrag schreiben
- *
- * @param entry     Handle
- * @param offset    Offset relativ zum Cache-Eintrag
- * @param size      Groesse des zu schreibenden Bereichs
- * @param buffer    Puffer aus dem die Daten gelesen werden
- */
-int     cdi_cache_entry_write(struct cdi_cache_entry* entry, size_t offset,
-            size_t size, const void* buffer)
-{
-    struct entry* e = (struct entry*) entry;
-    size_t block_size = entry->cache->block_size;
-    uint64_t dev_start_block = (e->offset + offset) / block_size;
-    size_t start_block = (e->offset + offset) / block_size - e->offset /
-        block_size;
-    size_t end_block = (e->offset + offset + size - 1) / block_size - e->offset /
-        block_size;
-    size_t block_count = end_block - start_block + 1;
-    size_t i;
-    size_t bytes_done = 0;
-
-    // Nicht ueber den Eintragsrand hinausschreiben
-    if ((offset + size) > e->size) {
-        return 0;
-    }
-
-    // Offset vom Block-Anfang im Cacheeintrag beruecksichtigen, falls vorhanden
-    offset += e->offset % block_size;
-
-    for (i = 0; i < block_count; i++) {
-        void* block;
-        size_t bytes = block_size;
-        size_t off = 0;
-
-        // Beim ersten Durchlauf muss der Anfangsoffset beruecksichtigt werden
-        if (i == 0) {
-            off = offset % block_size;
-            bytes = block_size - off;
-        }
-
-        if (i == block_count - 1) {
-            bytes = size - bytes_done;
-        }
-
-
-        if (e->blocks[start_block + i] == NULL) {
-            int read = 1;
-
-            if ((off == 0) && (bytes == block_size)) {
-                read = 0;
-            }
-
-            e->blocks[start_block + i] = get_block((struct cache*) entry->cache,
-                dev_start_block + i, read);
-            e->blocks[start_block + i]->ref_count++;
-        }
-
-        block = e->blocks[start_block + i]->cdi.data;
-        e->blocks[start_block + i]->access_time = ++cache_time;
-        e->blocks[start_block + i]->dirty = 1;
-
-
-        memcpy((void*) ((uintptr_t) block + off), (void*) ((uintptr_t) buffer +
-            bytes_done), bytes);
-        bytes_done += bytes;
-    }
-
-    return 1;
-}
-#endif
