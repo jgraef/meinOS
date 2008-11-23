@@ -79,7 +79,9 @@ struct fat_fs_res {
 
 // sector.c
 int fat_sector_read_cache(struct cdi_cache *cache,uint64_t block,size_t count,void *dest,void *prv);
+int fat_sector_write_cache(struct cdi_cache *cache,uint64_t block,size_t count,const void *dest,void *prv);
 size_t fat_read(struct cdi_fs_filesystem *fs,uint64_t pos,size_t size,void *buffer);
+size_t fat_write(struct cdi_fs_filesystem *fs,uint64_t pos,size_t size,const void *buffer);
 
 // init.c
 int fat_fs_init(struct cdi_fs_filesystem *fs);
@@ -93,6 +95,7 @@ int fat_fs_res_unload(struct cdi_fs_stream *stream);
 
 // file.c
 size_t fat_fs_file_read(struct cdi_fs_stream *stream,uint64_t start,size_t size,void *buffer);
+size_t fat_fs_file_write(struct cdi_fs_stream *stream,uint64_t start,size_t size,const void *buffer);
 
 // dir.c
 cdi_list_t fat12_16_rootdir_load(struct cdi_fs_filesystem *fs);

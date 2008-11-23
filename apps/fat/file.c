@@ -42,3 +42,28 @@ size_t fat_fs_file_read(struct cdi_fs_stream *stream,uint64_t start,size_t size,
   fat_cluster_read(res->fs,res->clusters,start,size,buffer);
   return size;
 }
+
+/**
+ * Writes to file
+ *  @param stream CDI FS stream
+ *  @param start Offset in flie
+ *  @param size How many bytes to write
+ *  @param buffer Data to write to file
+ *  @return How many bytes read
+ */
+size_t fat_fs_file_write(struct cdi_fs_stream *stream,uint64_t start,size_t size,const void *buffer) {
+  debug("fat_fs_file_write(0x%x,0x%x,0x%x,0x%x)\n",stream,start,size,buffer);
+  struct fat_fs_res *res = (struct fat_fs_res*)stream->res;
+
+  if (stream->fs->read_only) return 0;
+
+  if (start+size>res->filesize) {
+    /// @todo
+    //fat_fs_file_truncate(stream,start+size);
+    return 0;
+  }
+
+  fat_cluster_write(res->fs,res->clusters,start,size,buffer);
+  return size;
+}
+

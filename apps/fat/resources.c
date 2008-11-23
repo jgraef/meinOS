@@ -31,7 +31,7 @@ struct cdi_fs_res_file fat_fs_res_file = {
     .executable = 1,
 
     .read = fat_fs_file_read,
-    //.write = fat_fs_file_write
+    .write = fat_fs_file_write
 };
 
 struct cdi_fs_res_dir fat_fs_res_dir = {

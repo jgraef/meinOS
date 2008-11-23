@@ -30,5 +30,6 @@ struct fat_cluster_chain {
 
 struct fat_cluster_chain *fat_clchain_create(struct cdi_fs_filesystem *fs,size_t first_cluster);
 uint64_t fat_cluster_read(struct cdi_fs_filesystem *fs,struct fat_cluster_chain *clchain,uint64_t start,uint64_t size,void *buf);
+uint64_t fat_cluster_write(struct cdi_fs_filesystem *fs,struct fat_cluster_chain *clchain,uint64_t start,uint64_t size,const void *buf);
 
 #endif

@@ -72,6 +72,7 @@ int fat_fs_res_destroy(struct fat_fs_res *res) {
  *  @return 0=success; -1=failure
  */
 int fat_fs_res_load(struct cdi_fs_stream *stream) {
+  debug("fat_fs_res_load(0x%x)\n",stream);
   struct fat_fs_res *res = (struct fat_fs_res*)stream->res;
 
   if (!res->res.loaded) {
@@ -90,13 +91,18 @@ int fat_fs_res_load(struct cdi_fs_stream *stream) {
  *  @return 0=success; -1=failure
  */
 int fat_fs_res_unload(struct cdi_fs_stream *stream) {
+  debug("fat_fs_res_unload(0x%x)\n",stream);
   struct fat_fs_res *res = (struct fat_fs_res*)stream->res;
+  struct fat_fs_filesystem *fat_fs = res->fs->opaque;
 
   if (res->res.loaded) {
     // Destroy children
     struct fat_fs_res *child;
     while ((child = cdi_list_pop(res->res.children))) fat_fs_res_destroy(child);
     cdi_list_destroy(res->res.children);
+
+    // Sync with colume
+    cdi_cache_sync(fat_fs->cache);
 
     res->res.loaded = 0;
   }
