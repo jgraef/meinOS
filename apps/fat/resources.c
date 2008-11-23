@@ -22,7 +22,7 @@
 struct cdi_fs_res_res fat_fs_res_res = {
     .load = fat_fs_res_load,
     .unload = fat_fs_res_unload,
-    //.meta_read = fat_fs_res_meta_read
+    .meta_read = fat_fs_res_meta_read
 };
 
 struct cdi_fs_res_file fat_fs_res_file = {

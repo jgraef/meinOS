@@ -36,6 +36,7 @@ struct fat_fs_res* fat_fs_res_create(const char *name,struct fat_fs_res *parent,
   debug("fat_fs_res_create(%s,0x%x,%d,%d)\n",name,parent,class,type);
 
   struct fat_fs_res *res = malloc(sizeof(struct fat_fs_res));
+  memset(res,0,sizeof(struct fat_fs_res));
   res->res.name = strdup(name);
   res->class = class;
   res->res.type = type;
