@@ -33,6 +33,7 @@
  *  @return How many sectors read
  */
 int fat_sector_read_cache(struct cdi_cache *cache,uint64_t block,size_t count,void *dest,void *prv) {
+  debug("fat_sector_read_cache(0x%x,0x%x,0x%x,0x%x,0x%x)\n",cache,block,count,dest,prv);
   struct fat_fs_filesystem *fat_fs = ((struct cdi_fs_filesystem*)prv)->opaque;
   uint64_t start = block*fat_fs->bootsector->sector_size;
   size_t size = count*fat_fs->bootsector->sector_size;
@@ -50,6 +51,10 @@ int fat_sector_read_cache(struct cdi_cache *cache,uint64_t block,size_t count,vo
 size_t fat_read(struct cdi_fs_filesystem *fs,uint64_t pos,size_t size,void *buffer) {
   struct fat_fs_filesystem *fat_fs = fs->opaque;
   size_t block = pos/fat_fs->bootsector->sector_size;
+  if (block>=fat_num_sectors(fat_fs->bootsector)) {
+    debug("fat: KRITIKEL! Want to read block %d, but there are only %d\n",block,fat_num_sectors(fat_fs->bootsector));
+    return 0;
+  }
   size_t offset = pos%fat_fs->bootsector->sector_size;
   size_t rem_size = size;
 

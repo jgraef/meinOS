@@ -44,7 +44,10 @@ int fat_fs_init(struct cdi_fs_filesystem *fs) {
   if ((fat_fs->bootsector = fat_bootsector_load(fs))!=NULL) {
     // get FAT type
     fat_fs->type = fat_type(fat_fs->bootsector);
-    debug("fat: type: FAT%d\n",fat_fs->type);
+
+    debug("fat: type=fat%d\n",fat_fs->type);
+    debug("fat: total sectors = %d\n",fat_num_sectors(fat_fs->bootsector));
+    debug("fat: total bytes   = %d\n",fat_num_sectors(fat_fs->bootsector)*fat_fs->bootsector->sector_size);
 
     // create cache
     fat_fs->cache = cdi_cache_create(fat_fs->bootsector->sector_size,0,fat_sector_read_cache,NULL,fs);

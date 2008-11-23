@@ -29,6 +29,20 @@
   #include <ctype.h>
 #endif
 
+static int check_filename(char *name) {
+  size_t i,j;
+  char illegal[] = {0x22,0x2A,0x2B,0x2C,0x2E,0x2F,0x3A,0x3B,0x3C,0x3D,0x3E,0x3F,0x5B,0x5C,0x5D,0x7C};
+
+  if (name[0]==' ') return 0;
+  for (i=0;i<11;i++) {
+    if (name[i]<' ') return 0;
+    for (j=0;j<sizeof(illegal);j++) {
+      if (name[i]==illegal[j]) return 0;
+    }
+  }
+  return 1;
+}
+
 static char *parse_name(char *name,char *ext) {
   size_t i;
   size_t name_len = 0;
@@ -57,27 +71,62 @@ static char *parse_name(char *name,char *ext) {
   return filename;
 }
 
-static struct fat_fs_res *fat_dirent_load(struct fat_fs_res *parent,struct fat_dirent *dirent) {
-  char *name = parse_name((char*)dirent->filename,(char*)dirent->filename_ext);
+/**
+ * Converts UCS-2 to UTF-8
+ *  @param dest Destination for utf-8 data
+ *  @param src Source of UCS-2 data
+ *  @param n Num of elements (16bit-elements)
+ *  @todo Implement
+ */
+static void ucs2toutf8(uint8_t *dest,uint16_t *src,size_t n) {
+  size_t i;
 
-  if (dirent->attr.hidden && dirent->attr.system && dirent->attr.volume && dirent->attr.readonly) {
-    /// @todo Long names
+  for (i=0;i<n;i++) dest[i] = src[i]&0xFF;
+}
+
+static struct fat_fs_res *fat_dirent_load(struct fat_fs_res *parent,struct fat_dirent *dirent) {
+  struct fat_fs_filesystem *fat_fs = parent->fs->opaque;
+  static cdi_list_t long_dirents = NULL;
+
+  if (dirent->attr.hidden && dirent->attr.system && dirent->attr.volume && dirent->attr.readonly && ((struct fat_dirent_long*)dirent)->type==0) {
+    if (long_dirents==NULL) long_dirents = cdi_list_create();
+    cdi_list_push(long_dirents,memcpy(malloc(sizeof(struct fat_dirent)),dirent,sizeof(struct fat_dirent)));
   }
-  else if (!dirent->attr.volume) {
-    if (strcmp(name,".")!=0 && strcmp(name,"..")!=0) {
+  else if (!dirent->attr.volume && !dirent->attr.system && !dirent->attr.hidden) {
+    if (dirent->filename[0]!='.') {
+      char *name;
+      if (long_dirents==NULL) {
+        if (!check_filename((char*)dirent->filename)) return NULL;
+        name = parse_name((char*)dirent->filename,(char*)dirent->filename_ext);
+      }
+      else {
+        struct fat_dirent_long *long_dirent;
+        /// @todo Measure correctly how many bytes needed (UTF-8)
+        name = malloc(cdi_list_size(long_dirents)*13+1);
+        name[cdi_list_size(long_dirents)*13] = 0;
+        size_t cur = 0;
+        while ((long_dirent = cdi_list_pop(long_dirents))) {
+          ucs2toutf8((uint8_t*)name+cur,long_dirent->name1,5);
+          ucs2toutf8((uint8_t*)name+cur+5,long_dirent->name2,6);
+          ucs2toutf8((uint8_t*)name+cur+11,long_dirent->name3,2);
+          cur += 13;
+          free(long_dirent);
+        }
+        cdi_list_destroy(long_dirents);
+        long_dirents = NULL;
+      }
       cdi_fs_res_class_t class = dirent->attr.dir?CDI_FS_CLASS_DIR:CDI_FS_CLASS_FILE;
       cdi_fs_res_type_t type = 0;
       struct fat_fs_res *res = fat_fs_res_create(name,parent,class,type);
       res->readonly = dirent->attr.readonly;
-      res->system = dirent->attr.system;
       res->filesize = dirent->file_size;
-      res->clusters = fat_clchain_create(parent->fs,dirent->first_cluster);
+      if (fat_fs->type==FAT32) res->clusters = fat_clchain_create(parent->fs,fat32_first_cluster(dirent));
+      else res->clusters = fat_clchain_create(parent->fs,dirent->first_cluster);
       free(name);
       return res;
     }
   }
 
-  free(name);
   return NULL;
 }
 
@@ -129,18 +178,5 @@ cdi_list_t fat_dir_load(struct fat_fs_res *res) {
 
 cdi_list_t fat_fs_dir_list(struct cdi_fs_stream *stream) {
   struct fat_fs_res *res = (struct fat_fs_res*)stream->res;
-  struct fat_fs_res *child;
-  static cdi_list_t dirlist = NULL;
-  size_t i;
-
-  if (dirlist==NULL) dirlist = cdi_list_create();
-  else {
-    while ((child = cdi_list_pop(dirlist)));
-  }
-
-  for (i=0;(child = cdi_list_get(res->res.children,i));i++) {
-    if (!child->system) cdi_list_push(dirlist,child);
-  }
-
-  return dirlist;
+  return res->res.children;
 }

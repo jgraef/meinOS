@@ -30,7 +30,7 @@ struct cdi_fs_res_file fat_fs_res_file = {
     // Berechtigungen geregelt
     .executable = 1,
 
-    //.read = fat_fs_file_read,
+    .read = fat_fs_file_read,
     //.write = fat_fs_file_write
 };
 

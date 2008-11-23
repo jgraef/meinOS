@@ -33,6 +33,7 @@
  *  @return How many bytes read
  */
 size_t fat_fs_file_read(struct cdi_fs_stream *stream,uint64_t start,size_t size,void *buffer) {
+  debug("fat_fs_file_read(0x%x,0x%x,0x%x,0x%x)\n",stream,start,size,buffer);
   struct fat_fs_res *res = (struct fat_fs_res*)stream->res;
 
   if (start>res->filesize) return 0;

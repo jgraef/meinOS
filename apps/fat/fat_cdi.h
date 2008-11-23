@@ -73,9 +73,6 @@ struct fat_fs_res {
   /// Read only
   int readonly;
 
-  /// System file
-  int system;
-
   /// Cluster chain
   struct fat_cluster_chain *clusters;
 };
@@ -93,6 +90,9 @@ struct fat_fs_res* fat_fs_res_create(const char *name,struct fat_fs_res *parent,
 int fat_fs_res_destroy(struct fat_fs_res *res);
 int fat_fs_res_load(struct cdi_fs_stream *stream);
 int fat_fs_res_unload(struct cdi_fs_stream *stream);
+
+// file.c
+size_t fat_fs_file_read(struct cdi_fs_stream *stream,uint64_t start,size_t size,void *buffer);
 
 // dir.c
 cdi_list_t fat12_16_rootdir_load(struct cdi_fs_filesystem *fs);
