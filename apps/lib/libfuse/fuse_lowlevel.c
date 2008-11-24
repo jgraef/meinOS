@@ -89,6 +89,7 @@ void fuse_set_context(struct fuse *fuse) {
 // Wrapper functions
 
 static int fs_open(int fsid,int oflag,int shmid) {
+  fprintf(stderr,"fuse: fs_open(%d,%d,%d)\n",fsid,oflag,shmid);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->open!=NULL) {
@@ -121,6 +122,7 @@ static int fs_open(int fsid,int oflag,int shmid) {
 }
 
 static int fs_close(int fsid,int fh) {
+  fprintf(stderr,"fuse: fs_close(%d,%d)\n",fsid,fh);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -143,6 +145,7 @@ static int fs_close(int fsid,int fh) {
 }
 
 static ssize_t fs_read(int fsid,int fh,size_t count) {
+  fprintf(stderr,"fuse: fs_read(%d,%d,%d)\n",fsid,fh,count);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -160,6 +163,7 @@ static ssize_t fs_read(int fsid,int fh,size_t count) {
 }
 
 static ssize_t fs_write(int fsid,int fh,size_t count) {
+  fprintf(stderr,"fuse: fs_write(%d,%d,%d)\n",fsid,fh,count);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -177,6 +181,7 @@ static ssize_t fs_write(int fsid,int fh,size_t count) {
 }
 
 static ssize_t fs_readlink(int fsid,int shmid,size_t bufsize) {
+  fprintf(stderr,"fuse: fs_readlink(%d,%d,%d)\n",fsid,shmid,bufsize);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->readlink!=NULL) {
@@ -196,6 +201,7 @@ static ssize_t fs_readlink(int fsid,int shmid,size_t bufsize) {
 }
 
 static int fs_symlink(int fsid,char *src,char *dest) {
+  fprintf(stderr,"fuse: fs_symlink(%d,%s,%s)\n",fsid,src,dest);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->symlink!=NULL) return fuse->fs->op->symlink(src,dest);
@@ -205,6 +211,7 @@ static int fs_symlink(int fsid,char *src,char *dest) {
 }
 
 static int fs_link(int fsid,char *src,char *dest) {
+  fprintf(stderr,"fuse: fs_link(%d,%s,%s)\n",fsid,src,dest);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->link!=NULL) return fuse->fs->op->link(src,dest);
@@ -215,6 +222,7 @@ static int fs_link(int fsid,char *src,char *dest) {
 
 
 static off_t fs_seek(int fsid,int fh,off_t off,int whence) {
+  fprintf(stderr,"fuse: fs_seek(%d,%d,%d,%d)\n",fsid,fh,off,whence);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -230,6 +238,7 @@ static off_t fs_seek(int fsid,int fh,off_t off,int whence) {
 }
 
 static int fs_fstat(int fsid,int fh) {
+  fprintf(stderr,"fuse: fs_fstat(%d,%d)\n",fsid,fh);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -244,6 +253,7 @@ static int fs_fstat(int fsid,int fh) {
 }
 
 static int fs_unlink(int fsid,char *path) {
+  fprintf(stderr,"fuse: fs_unlink(%d,%s)\n",fsid,path);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->unlink!=NULL) return fuse->fs->op->unlink(path);
@@ -253,6 +263,7 @@ static int fs_unlink(int fsid,char *path) {
 }
 
 static int fs_rmdir(int fsid,char *path) {
+  fprintf(stderr,"fuse: fs_rmdir(%d,%s)\n",fsid,path);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->rmdir!=NULL) return fuse->fs->op->rmdir(path);
@@ -262,6 +273,7 @@ static int fs_rmdir(int fsid,char *path) {
 }
 
 static int fs_rename(int fsid,char *old,char *new) {
+  fprintf(stderr,"fuse: fs_rename(%d,%s,%s)\n",fsid,old,new);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->rename!=NULL) return fuse->fs->op->rename(old,new);
@@ -271,6 +283,7 @@ static int fs_rename(int fsid,char *old,char *new) {
 }
 
 static int fs_ftruncate(int fsid,int fh,off_t length) {
+  fprintf(stderr,"fuse: fs_truncate(%d,%d,%d)\n",fsid,fh,length);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -285,6 +298,7 @@ static int fs_ftruncate(int fsid,int fh,off_t length) {
 }
 
 static int fs_opendir(int fsid,int shmid) {
+  fprintf(stderr,"fuse: fs_opendir(%d,%d)\n",fsid,shmid);
   int ret;
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
@@ -317,6 +331,7 @@ static int fs_opendir(int fsid,int shmid) {
 }
 
 static int fs_readdir(int fsid,int dh) {
+  fprintf(stderr,"fuse: fs_readdir(%d,%d)\n",fsid,dh);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,dh);
@@ -346,6 +361,7 @@ static int fs_readdir(int fsid,int dh) {
 }
 
 static int fs_closedir(int fsid,int dh) {
+  fprintf(stderr,"fuse: fs_closedir(%d,%d)\n",fsid,dh);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,dh);
@@ -370,6 +386,7 @@ static int fs_closedir(int fsid,int dh) {
 }
 
 static off_t fs_seekdir(int fsid,int dh,off_t off) {
+  fprintf(stderr,"fuse: fs_seekdir(%d,%d,%d)\n",fsid,dh,off);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,dh);
@@ -383,6 +400,7 @@ static off_t fs_seekdir(int fsid,int dh,off_t off) {
 }
 
 static int fs_statvfs(int fsid,int shmid) {
+  fprintf(stderr,"fuse: fs_statvfs(%d,%d)\n",fsid,shmid);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->statfs!=NULL) {
@@ -402,6 +420,7 @@ static int fs_statvfs(int fsid,int shmid) {
 }
 
 static int fs_mknod(int fsid,char *path,mode_t mode,dev_t dev) {
+  fprintf(stderr,"fuse: fs_mknod(%d,%s,%o,%d)\n",fsid,path,mode,dev);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (S_ISDIR(mode)) {
@@ -417,6 +436,7 @@ static int fs_mknod(int fsid,char *path,mode_t mode,dev_t dev) {
 }
 
 static int fs_dup(int fsid,int fh,int shmid) {
+  fprintf(stderr,"fuse: fs_dup(%d,%d,%d)\n",fsid,fh,shmid);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     struct fuse_file *file = fuse_file_find(fuse,fh);
@@ -440,6 +460,7 @@ static int fs_dup(int fsid,int fh,int shmid) {
 }
 
 static int fs_chown(int fsid,char *path,uid_t uid,gid_t gid) {
+  fprintf(stderr,"fuse: fs_chown(%d,%s,%d,%d)\n",fsid,path,uid,gid);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->chown!=NULL) return fuse->fs->op->chown(path,uid,gid);
@@ -449,6 +470,7 @@ static int fs_chown(int fsid,char *path,uid_t uid,gid_t gid) {
 }
 
 static int fs_chmod(int fsid,char *path,mode_t mode) {
+  fprintf(stderr,"fuse: fs_chmod(%d,%s,%o)\n",fsid,path,mode);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->chmod!=NULL) return fuse->fs->op->chmod(path,mode);
@@ -458,6 +480,7 @@ static int fs_chmod(int fsid,char *path,mode_t mode) {
 }
 
 static int fs_access(int fsid,char *path,int amode) {
+  fprintf(stderr,"fuse: fs_access(%d,%s,%d)\n",fsid,path,amode);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->access!=NULL) return fuse->fs->op->access(path,amode);
@@ -467,6 +490,7 @@ static int fs_access(int fsid,char *path,int amode) {
 }
 
 static int fs_utime(int fsid,int shmid) {
+  fprintf(stderr,"fuse: fs_utime(%d,%d)\n",fsid,shmid);
   struct fuse *fuse = fuse_find(fsid);
   if (fuse!=NULL) {
     if (fuse->fs->op->utime!=NULL) {

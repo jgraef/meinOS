@@ -140,6 +140,7 @@ int vfs_getfsid(char *file,int parent) {
   if (maxfs!=NULL) {
     fprintf(stderr,"vfs: %s is on FS %s (%d)\n",file,maxfs->name,maxfs->fsid);
     memmove(file,file+strlen(maxfs->mountpoint),strlen(file)-strlen(maxfs->mountpoint)+1);
+    if (file[0]==0) strcpy(file,"/");
     return maxfs->fsid;
   }
   else {

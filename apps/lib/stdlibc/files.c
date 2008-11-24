@@ -113,7 +113,8 @@ static struct fslist_item *mp_match(char *file,int parent) {
     }
   }
 
-  if (maxfs!=NULL) strcpy(file,file+strlen(maxfs->mountpoint_str));
+  if (maxfs!=NULL) memmove(file,file+strlen(maxfs->mountpoint_str),strlen(file)-strlen(maxfs->mountpoint_str)+1);
+  if (file[0]==0) strcpy(file,"/");
 
   return maxfs;
 }
@@ -336,7 +337,7 @@ int open(const char *path,int oflag,...) {
 /**
  * Closes all filehandles
  */
-void close_all_filehandles() {
+void _close_all_filehandles() {
   struct filelist_item *file;
   while ((file = llist_pop(filelist))!=NULL) {
     if (S_ISREG(file->mode)) close(file->fh);
@@ -682,7 +683,6 @@ struct dirent *readdir(DIR *file) {
   char *func;
   if (file!=NULL) {
     asprintf(&func,"fs_readdir_%x",file->fs->pid);
-    //printf("<%s : %s>\n",func);
     res = rpc_call(func,0,file->fs->id,file->fs_fh);
     free(func);
     if (res>=0) {
