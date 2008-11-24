@@ -153,8 +153,6 @@ void interrupt_exception_handler(unsigned int exception,uint32_t errcode) {
     kprintf("%s error in %s at index 0x%x\n",(errcode&1)?"External":"Internal",(errcode&2)?"IDT":((errcode&4)?"LDT":"GDT"),(errcode&0xFFF8)>>3);
   }
 
-  cpu_halt();
-
   if (exception==INTERRUPT_EXCEPTION_PAGE_FAULT) kill(proc_current,SIGSEGV);
   else if (exception==INTERRUPT_EXCEPTION_INVALID_OPCODE) kill(proc_current,SIGILL);
   else kill(proc_current,SIGKILL);

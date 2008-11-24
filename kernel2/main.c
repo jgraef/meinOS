@@ -55,10 +55,7 @@ char *basename(char *path) {
 }
 
 int fourtytwo() {
-  kprintf("phys. Memory available: %dkB (%d)\n",memphys_memory/1024,memphys_memory);
-  kprintf("phys. Memory free:      %dkB (%d)\n",memphys_memleft()/1024,memphys_memleft());
-  kprintf("phys. Memory used:      %dkB (%d)\n",(memphys_memory-memphys_memleft())/1024,(memphys_memory-memphys_memleft()));
-  return 0;
+  return 42;
 }
 
 int putsn(int out,char *buf,size_t maxlen) {
@@ -122,7 +119,7 @@ int main(multiboot_info_t *mbi,uint32_t magic) {
       void *entrypoint = elf_load(new->addrspace,addr,size);
       if (entrypoint!=NULL) {
         new->registers.eip = (uint32_t)entrypoint;
-        kprintf("done\n");
+        kprintf("(pid=%d) done\n",new->pid);
         continue;
       }
       else proc_destroy(new);
