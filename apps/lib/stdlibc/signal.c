@@ -63,7 +63,7 @@ static void signal_dfl_abort(int sig) {
 }
 
 static void signal_dfl_cont(int sig) {
-  // process continues automatically if it receives a signal
+  // process continues automatically if it receives SIGCONT
 }
 
 static void signal_dfl_stop(int sig) {

@@ -27,12 +27,12 @@
 #include <stdint.h>
 
 // some variables/functions needed
-void _fs_init();              ///< @see files.c
-void stdio_init();            ///< @see stdio.h
-void env_init();              ///< @see env.c
-llist_t atexit_list;          ///< @see stdlib.c
-void close_all_filehandles(); ///< @see files.c
-void _signal_init();          ///< @see signal.c
+void _fs_init();               ///< @see files.c
+void stdio_init();             ///< @see stdio.h
+void env_init();               ///< @see env.c
+llist_t atexit_list;           ///< @see stdlib.c
+void _close_all_filehandles(); ///< @see files.c
+void _signal_init();           ///< @see signal.c
 
 void _stdlib_init() {
   rand_seed = rand_seed%RAND_MAX;
@@ -60,17 +60,8 @@ void exit(int result) {
  *  @param result Program result
  */
 void _Exit(int result) {
-  close_all_filehandles();
+  _close_all_filehandles();
   syscall_call(SYSCALL_PROC_EXIT,1,result);
-}
-
-/**
- * Aborts the program
- *  @todo Save cordump to file "core"
- */
-void abort() {
-  close_all_filehandles();
-  syscall_call(SYSCALL_PROC_ABORT,0);
 }
 
 /**
