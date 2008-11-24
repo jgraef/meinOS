@@ -24,8 +24,6 @@
 #include <unistd.h>
 #include <sys/cdefs.h>
 
-#include <fcntl.h>
-
 // Default mount parameters for root
 #ifndef ROOT_FS
   #define ROOT_FS "ramdisk"
@@ -118,7 +116,7 @@ int main(int argc,char *argv[]) {
     "ramdisk",
     "pci",
     "psdev",
-    "console",
+    //"console",
     //"cirrus",
     NULL
   };
@@ -143,12 +141,12 @@ int main(int argc,char *argv[]) {
       // create directories
       mkdir("/dev",0777);
       mkdir(BOOT_MP,0777);
+      mkdir("/tmp",0777);
+      mkdir("/mnt",0777);
       // create symlinks
       init_link("/bin");
       init_link("/etc");
       init_link("/usr");
-      // create /tmp
-      mkdir("/tmp",0777);
     }
   }
 
@@ -156,23 +154,6 @@ int main(int argc,char *argv[]) {
     NULL
   };
   execute("/boot/usr/login",login_argv);*/
-
-  FILE *myin = fopen("/dev/console","r");
-  if (myin!=NULL) {
-    FILE *myout = fopen("/dev/console","w");
-    if (myout!=NULL) {
-      while (1) {
-        char chr = 0;
-        chr = fgetc(myin);
-        if (chr>0) {
-          fputc(chr,myout);
-          fflush(myout);
-        }
-      }
-      fclose(myout);
-    }
-    fclose(myin);
-  }
 
   while (1) sleep(1);
 
