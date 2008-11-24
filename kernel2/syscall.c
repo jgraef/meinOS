@@ -24,6 +24,7 @@
 #include <signal.h>
 #include <debug.h>
 #include <interrupt.h>
+#include <dyncall.h>
 
 /**
  * Initializes Syscall Management
@@ -41,17 +42,12 @@ int syscall_init() {
 void syscall_handler(uint32_t *stack) {
   proc_t *proc_call = proc_current;
   int res = -1;
-  size_t i;
-  unsigned int cmd;
   interrupt_save_stack(stack,NULL);
-  int *params = ((int*)*interrupt_curregs.esp);
+  int cmd = ((int*)*interrupt_curregs.esp)[0];
+  int *params = ((void**)*interrupt_curregs.esp)[1];
 
-  cmd = *params++;
   if (cmd<=SYSCALL_MAXNUM) {
-    if (syscalls[cmd].func!=NULL) {
-      for (i=0;i<syscalls[cmd].numparams;i++) asm("push %0"::"a"(params[i]));
-      res = syscalls[cmd].func();
-    }
+    if (syscalls[cmd].func!=NULL) res = dyn_call(syscalls[cmd].func,params,syscalls[cmd].numparams);
     else kill(proc_current,SIGSYS);
   }
 

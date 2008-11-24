@@ -24,6 +24,7 @@
 #include <llist.h>
 #include <rpc.h>
 #include <misc.h>
+#include <dyncall.h>
 #include <unistd.h>
 
 int rpc_func_create(const char *name,void *func,const char *synopsis,size_t paramsz) {
@@ -129,9 +130,9 @@ int rpc_poll(int id) {
         else if (synopsis[i]=='$') unpackstr(params,(char**)param_list+i);
         i++;
       }
-      for (i=num_params;i>0;i--) asm("push %0"::"r"(((int)param_list[i-1])));
-      ret = func();
-      asm("add %0,%%esp"::"r"(num_params*sizeof(int)));
+
+      ret = dyn_call(func,param_list,num_params);
+
       if (syscall_call(SYSCALL_RPC_RETURN,3,id,ret,pack_data(params))==0) {
         errno = 0;
         return 0;
