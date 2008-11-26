@@ -18,6 +18,8 @@
  */
 
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "cdi/fs.h"
 #include "cdi/lists.h"
@@ -25,9 +27,11 @@
 #include "fat_cdi.h"
 #include "dirent.h"
 #include "cluster.h"
+
 #ifdef FAT_LOWER_FILENAMES
   #include <ctype.h>
 #endif
+
 
 static int check_filename(char *name) {
   size_t i,j;

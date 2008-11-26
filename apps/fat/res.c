@@ -18,6 +18,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "fat_cdi.h"
 
@@ -41,6 +42,7 @@ struct fat_fs_res* fat_fs_res_create(const char *name,struct fat_fs_res *parent,
   res->class = class;
   res->res.type = type;
   if (parent!=NULL) res->fs = parent->fs;
+  memset(&res->res.flags,0xFF,sizeof(res->res.flags));
 
   res->res.res = &fat_fs_res_res;
   if (class==CDI_FS_CLASS_FILE) res->res.file = &fat_fs_res_file;
@@ -55,7 +57,7 @@ struct fat_fs_res* fat_fs_res_create(const char *name,struct fat_fs_res *parent,
  *  @return 0=success; -1=failure
  */
 int fat_fs_res_destroy(struct fat_fs_res *res) {
-  debug("fat_fs_res_destroy(0x%x)\n",res);
+  debug("fat_fs_res_destroy(0x%x(%s))\n",res,res->res.name);
 
   free(res->res.name);
   if (res->res.children!=NULL) {
@@ -63,6 +65,7 @@ int fat_fs_res_destroy(struct fat_fs_res *res) {
     struct fat_fs_res *child;
     for (i=0;(child = cdi_list_get(res->res.children,i));i++) fat_fs_res_destroy(child);
     cdi_list_destroy(res->res.children);
+    free(res);
   }
   return 0;
 }
@@ -101,8 +104,9 @@ int fat_fs_res_unload(struct cdi_fs_stream *stream) {
     struct fat_fs_res *child;
     while ((child = cdi_list_pop(res->res.children))) fat_fs_res_destroy(child);
     cdi_list_destroy(res->res.children);
+    res->res.children = NULL;
 
-    // Sync with colume
+    // Sync with volume
     cdi_cache_sync(fat_fs->cache);
 
     res->res.loaded = 0;

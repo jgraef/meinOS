@@ -79,8 +79,9 @@ int fat_fs_init(struct cdi_fs_filesystem *fs) {
 int fat_fs_destroy(struct cdi_fs_filesystem *fs) {
   debug("fat_fs_destroy(0x%x)\n",fs);
 
+  fat_fs_res_destroy((struct fat_fs_res*)fs->root_res);
   struct fat_fs_filesystem *fat_fs = fs->opaque;
   free(fat_fs->bootsector);
   free(fat_fs);
-  return 0;
+  return 1;
 }
