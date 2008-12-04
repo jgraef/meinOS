@@ -733,13 +733,6 @@ isr37: ; Syscall interrupt
 	popsr
 	add esp,4 ; pop error code
 
-;	mov edx,esp
-;	add edx,44
-;	mov eax,[edx]
-;	push eax
-;	call syscall_handler
-;	add esp,9*4
-
 	; restore ds
 	mov dx,[reg_ds]
 	mov ds,dx
