@@ -52,45 +52,66 @@ struct proc_registers {
 };
 
 /// Process structure
+/// @todo do check for system instead for root-uid/gid
+/// @todo move uid/gid to var
 struct proc_S {
   /// Process ID
   pid_t pid;
+
   /// Owner UID
   uid_t uid,euid,suid;
+
   /// Owner GID
   gid_t gid,egid,sgid;
+
+  /// If system process
+  int system;
+
   /// Process name
   char *name;
+
   /// Parent process
   proc_t *parent;
+
   /// Children
   llist_t children;
+
   /// Primary registers
   struct proc_registers registers;
+
   /// Address space
   addrspace_t *addrspace;
-  /// IRQ handlers
-  //void *irq_handler[16];
+
   /// Time handlers
   llist_t time_handler;
+
   /// Nice value
   int nice;
+
   /// Remaining ticks
   clock_t ticks_rem;
+
   /// Whether process sleeps
   int is_sleeping;
+
   /// Private variable
   int var;
+
   /// If process is defunc
   int defunc;
+
   /// Return value
   int ret;
+
   /// Signal handler
   void (*signal)(int);
+
   /// Is VM8086 process
   int is_vm86;
+
   /// VM8086 Pagedir
   pd_t vm86_pagedir;
+
   /// VM8086 segment registers
   struct vm86_segmentregs vm86_segregs;
 };
@@ -102,7 +123,7 @@ pid_t proc_nextpid;
 proc_t *proc_current;
 
 int proc_init();
-proc_t *proc_create(char *name,uid_t uid,gid_t gid,proc_t *parent,int running);
+proc_t *proc_create(char *name,uid_t uid,gid_t gid,proc_t *parent,int system,int running);
 int proc_destroy(proc_t *proc);
 proc_t *proc_find(pid_t pid);
 int proc_sleep(proc_t *proc);
@@ -115,8 +136,10 @@ void proc_setuid(int idmask,uid_t uid);
 gid_t proc_getgid(int idmask);
 void proc_setgid(int idmask,gid_t gid);
 ssize_t proc_getname(pid_t pid,char *buf,size_t maxlen);
+int proc_setname(pid_t pid,const char *name);
 pid_t proc_getpidbyname(const char *name);
-int proc_getvar();
+int proc_getvar(pid_t pid);
+void proc_setvar(pid_t pid,int var);
 void proc_exit(int ret);
 void proc_abort();
 void proc_continue();
@@ -125,9 +148,15 @@ void proc_call(proc_t *proc,void *func,size_t numparams,...);
 void proc_push(proc_t *proc,int val);
 int proc_pop(proc_t *proc);
 void proc_idle();
-proc_t *proc_vfork(proc_t *proc);
-proc_t *proc_fork(proc_t *proc);
-pid_t proc_fork_syscall(void *start);
-int proc_exec(char *name,void *elf_buf,size_t elf_size,int var,int do_fork);
+pid_t proc_create_syscall(char *name,uid_t uid,gid_t gid,pid_t parent_pid);
+int proc_destroy_syscall(pid_t proc_pid);
+int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,int cow);
+int proc_memunmap(pid_t proc_pid,void *virt);
+int proc_memfree(pid_t proc_pid,void *virt);
+void *proc_memget(pid_t proc_pid,void *virt,int *exists,int *writable,int *swappable,int *cow);
+int proc_memalloc(pid_t proc_pid,void *virt,int writable,int swappable);
+int proc_system(pid_t proc_pid,int system);
+int proc_jump(pid_t proc_pid,void *dest);
+int *proc_createstack(pid_t proc_pid);
 
 #endif

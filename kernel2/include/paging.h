@@ -71,6 +71,17 @@
  */
 #define PAGEOFF(addr)  (((unsigned int)addr)%PAGE_SIZE)
 
+/**
+ * Maps a page (extended)
+ *  @param virt Virtual address
+ *  @param phys Physical address
+ *  @param user Whether page is accessable by user
+ *  @param writable Whether page is writable
+ *  @return 0=Success; -1=Failure
+ *  @todo By default a page should be swappable
+ */
+#define paging_map(virt,phys,user,writable) paging_map_pd(virt,phys,user,writable,0,0,paging_curpd)
+
 /// Type for Pagedir Entry
 typedef struct {
   /// PT exists
@@ -114,8 +125,8 @@ typedef struct {
   unsigned accessed:1;
   /// Page is dirty
   unsigned dirty:1;
-  /// Unused
-  unsigned :1;
+  /// Page is COW
+  unsigned cow:1;
   /// Page is global
   unsigned global:1;
   /// Page exists
@@ -153,7 +164,7 @@ pde_t paging_getpde_pd(void *virt,pd_t pagedir);
 int paging_setpde_pd(void *virt,pde_t pde,pd_t pagedir);
 pte_t paging_getpte_pd(void *virt,pd_t pagedir);
 int paging_setpte_pd(void *virt,pte_t pte,pd_t pagedir);
-int paging_map(void *virt,void *phys,int user,int writable);
+int paging_map_pd(void *virt,void *phys,int user,int writable,int swappable,int cow,pd_t pagedir);
 void *paging_unmap(void *virt);
 void *paging_getphysaddr(void *virt);
 

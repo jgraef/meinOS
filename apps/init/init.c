@@ -18,42 +18,18 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <misc.h>
 #include <unistd.h>
 #include <sys/cdefs.h>
+#include <proc.h>
+#include <rpc.h>
+#include <libgen.h>
 
-// Default mount parameters for root
-#ifndef ROOT_FS
-  #define ROOT_FS "ramdisk"
-#endif
-#ifndef ROOT_MP
-  #define ROOT_MP "/"
-#endif
-#ifndef ROOT_DEV
-  #define ROOT_DEV NULL
-#endif
-#ifndef ROOT_RO
-  #define ROOT_RO 0
-#endif
-#if ROOT_RO==1
-  #error Root must be RW!
-#endif
-
-// Default mount parameters for boot device
-#ifndef BOOT_FS
-  #define BOOT_FS "iso9660"
-#endif
-#ifndef BOOT_MP
-  #define BOOT_MP "/boot"
-#endif
-#ifndef BOOT_DEV
-  #define BOOT_DEV "/dev/cdrom0"
-#endif
-#ifndef BOOT_RO
-  #define BOOT_RO 1
-#endif
+#include "exe_elf.h"
+#include "init.conf.h"
 
 static int sigusr1_count;
 
@@ -79,7 +55,7 @@ static void init_init() {
 static void init_run(const char *name) {
   pid_t pid = getpidbyname(name);
   sigusr1_count = 0;
-  kill(pid,SIGCONT);
+  proc_run(pid);
 }
 
 /**
@@ -97,44 +73,103 @@ static int init_wait(const char *name) {
   return (t<timeout);
 }
 
-void init_link(char *dir) {
+static void init_link(char *dir) {
   char *dest;
   asprintf(&dest,"%s%s",BOOT_MP,dir);
   symlink(dest,dir);
   free(dest);
 }
 
+static void *exe_load(pid_t pid,const char *file) {
+  return elf_load(pid,file);
+}
+
+static pid_t proc_fork(void *child_entry) {
+  // Create process
+  char *name = getname(rpc_curpid);
+  pid_t pid = proc_create(name,getuidbypid(rpc_curpid),getgidbypid(rpc_curpid),rpc_curpid);
+
+  printf("init: forking new process: %d (0x%x)\n",pid,child_entry);
+
+  if (pid!=-1) {
+    // Copy userspace memory
+    void *i;
+    for (i=(void*)USERSPACE_ADDRESS;i<(void*)(USERSPACE_ADDRESS+USERSPACE_SIZE);i+=PAGE_SIZE) {
+      int exists,writable,swappable;
+      /// @todo make this _faster_
+      void *page = proc_memget(rpc_curpid,i,&exists,&writable,&swappable,NULL);
+      if (exists) {
+        if (page!=NULL) {
+          fprintf(stderr,"init: map 0x%x to 0x%x (COW)\n",i,page);
+          proc_memmap(pid,i,page,writable,swappable,1);
+        }
+        else proc_memalloc(pid,i,writable,swappable);
+      }
+    }
+
+    // Set entrypoint of child
+    proc_jump(pid,child_entry);
+
+    proc_run(pid);
+  }
+
+  return pid;
+}
+
+/// @todo What happens when returning? caller won't request return
+static void proc_exec(const char *file,int var) {
+  // Change process
+  char *_file = strdup(file);
+  proc_stop(rpc_curpid);
+  proc_setvar(rpc_curpid,var);
+  proc_setname(rpc_curpid,basename(_file));
+
+  // Remove userspace
+  void *i;
+  for (i=(void*)USERSPACE_ADDRESS;i<(void*)(USERSPACE_ADDRESS+USERSPACE_SIZE);i+=PAGE_SIZE) {
+    proc_memfree(rpc_curpid,i);
+  }
+
+  // Load executable
+  void *entrypoint = exe_load(rpc_curpid,file);
+  proc_jump(rpc_curpid,entrypoint);
+  proc_createstack(rpc_curpid);
+
+  proc_run(rpc_curpid);
+}
+
+static pid_t proc_execute(const char *file,int var) {
+  // Create process
+  char *_file = strdup(file);
+  pid_t pid = proc_create(basename(_file),getuidbypid(rpc_curpid),getgidbypid(rpc_curpid),rpc_curpid);
+  proc_setvar(pid,var);
+
+  // Load executable
+  void *entrypoint = exe_load(pid,file);
+  proc_jump(pid,entrypoint);
+  proc_createstack(rpc_curpid);
+
+  proc_run(pid);
+  return pid;
+}
+
 int main(int argc,char *argv[]) {
   size_t i;
-  const char *init_programs[] = {
-    "vfs",
-    "devfs",
-    "dma",
-    "ata",
-    "cdrom",
-    "iso9660",
-    "ramdisk",
-    "pci",
-    "psdev",
-    //"console",
-    //"cirrus",
-    NULL
-  };
 
   init_init();
-  for (i=0;init_programs[i];i++) {
-    init_run(init_programs[i]);
-    if (!init_wait(init_programs[i])) {
+  for (i=0;INIT_PROGRAM(i);i++) {
+    init_run(INIT_PROGRAM(i));
+    if (!init_wait(INIT_PROGRAM(i))) {
       fprintf(stderr,"init: %s does not respond. initialization failed!\n",init_programs[i]);
       return 1;
     }
-    if (strcmp(init_programs[i],"iso9660")==0) {
+    if (strcmp(INIT_PROGRAM(i),"iso9660")==0) {
       // Initial mount of boot device
       printf("init: Mounting boot filesystem: mount -t %s %s %s\n",BOOT_FS,BOOT_DEV,BOOT_MP);
       vfs_mount(BOOT_FS,BOOT_MP,BOOT_DEV,BOOT_RO);
       sleep(1);
     }
-    else if (strcmp(init_programs[i],"ramdisk")==0) {
+    else if (strcmp(INIT_PROGRAM(i),"ramdisk")==0) {
       // Initial mount of root device
       printf("init: Mounting root filesystem: mount -t %s %s %s\n",ROOT_FS,ROOT_DEV,ROOT_MP);
       vfs_mount(ROOT_FS,ROOT_MP,ROOT_DEV,ROOT_RO);
@@ -150,12 +185,13 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  /*char *login_argv = {
-    NULL
-  };
-  execute("/boot/usr/login",login_argv);*/
+  rpc_func(proc_fork,"i",sizeof(int));
+  rpc_func(proc_exec,"$i",PATH_MAX+sizeof(int));
+  rpc_func(proc_execute,"$i",PATH_MAX+sizeof(int));
 
-  while (1) sleep(1);
+  init_run(LOGIN_PROGRAM);
+
+  rpc_mainloop(-1);
 
   return 0;
 }

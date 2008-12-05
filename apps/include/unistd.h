@@ -23,7 +23,7 @@
 #include <syscall.h>
 #include <stdlib.h>
 #include <string.h>
-#include <misc.h>
+#include <proc.h>
 
 #ifndef NULL
   #define NULL ((void*)0)
@@ -99,5 +99,7 @@ extern int optind,opterr,optopt;
 extern char **environ;
 int execv(const char *path,const char *argv[]);
 int execve(const char *path,const char *argv[],const char *env);
+
+pid_t fork();
 
 #endif

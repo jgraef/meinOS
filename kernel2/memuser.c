@@ -38,7 +38,7 @@
  */
 int memuser_init() {
   memuser_inited = 1;
-memuser_debug = 0;
+  memuser_debug = 0;
   if (syscall_create(SYSCALL_MEM_MALLOC,memuser_alloc_syscall,1)==-1) return -1;
   if (syscall_create(SYSCALL_MEM_FREE,memuser_free_syscall,1)==-1) return -1;
   if (syscall_create(SYSCALL_MEM_GETPHYSADDR,memuser_getphysaddr_syscall,1)==-1) return -1;
@@ -109,37 +109,6 @@ int memuser_destroy_pagedir(pd_t pagedir) {
   if (paging_curpd==pagedir) paging_loadpagedir(paging_kernelpd);
   memphys_free(pagedir);
   return 0;
-}
-
-/**
- * Copies Pagedir
- *  @param pagedir Pagedir to be copied (must be loaded)
- *  @return New pagedir
- */
-pd_t memuser_clone_pagedir(pd_t pagedir) {
-  if (paging_curpd!=pagedir) return NULL;
-
-
-  /*kprintf("FIXME: %s line %d\n",__FILE__,__LINE__);
-  kprintf("Fork crashes memphys, so memphys thinks it has no memory left\n");
-while (1);*/
-
-  pd_t new = memuser_create_pagedir();
-
-  // copy user PDEs,PTs,PTEs and pages
-  size_t i;
-  for (i=USERDATA_ADDRESS;i<USERDATA_SIZE;i+=PAGE_SIZE) {
-    if (i%1024*PAGESIZE==0) memuser_create_pagetable(new,(void*)i);
-    pte_t pte = paging_getpte((void*)i);
-    if (pte.in_memory) {
-      kprintf("Left:     0x%x\n",memphys_memleft());
-      pte.page = ADDR2PAGE(memphys_alloc());
-      kprintf("New page: 0x%x\n",PAGE2ADDR(pte.page));
-      paging_physwrite(PAGE2ADDR(pte.page),(void*)i,PAGE_SIZE);
-    }
-    paging_setpte_pd((void*)i,pte,new);
-  }
-  return new;
 }
 
 /**
@@ -260,6 +229,9 @@ int memuser_free(addrspace_t *addrspace,void *page) {
     swap_remove(proc_current,page);
     llist_remove(addrspace->pages_swapped,llist_find(addrspace->pages_swapped,page));
   }
+  else if (pte.cow) {
+    paging_unmap(page);
+  }
   else {
     paging_unmap(page);
     llist_remove(addrspace->pages_imaginary,llist_find(addrspace->pages_imaginary,page));
@@ -328,16 +300,28 @@ int memuser_pagefault(void *addr) {
   addrspace_t *addrspace = proc_current->addrspace;
   void *page = PAGEDOWN(addr);
   pte_t pte = paging_getpte(page);
-  if (!pte.exists || pte.in_memory) return -1;
-  else if (pte.swapped) {
+  if (!pte.exists) return -1;
+  else if (pte.swapped && pte.in_memory==0) {
+    kprintf("kernel: Catched access to out-swapped memory\n");
     if (swap_in(proc_current,page)!=-1) {
       llist_remove(addrspace->pages_swapped,llist_find(addrspace->pages_swapped,page));
       llist_push(addrspace->pages_loaded,page);
       swap_remove(proc_current,page);
       return 0;
     }
+    else return -1;
   }
-  else {
+  else if (pte.cow && pte.in_memory==1) {
+    void *old = PAGE2ADDR(pte.page);
+    void *new = memphys_alloc();
+    pte.page = ADDR2PAGE(new);
+    pte.cow = 0;
+    pte.writable = 1;
+    paging_setpte(page,pte);
+    paging_physread(page,old,PAGE_SIZE);
+    return 0;
+  }
+  else if (pte.in_memory==0) {
     pte.page = ADDR2PAGE(memphys_alloc());
     pte.in_memory = 1;
     paging_setpte(page,pte);
@@ -345,7 +329,7 @@ int memuser_pagefault(void *addr) {
     llist_push(addrspace->pages_loaded,page);
     return 0;
   }
-  return -1;
+  else return -1;
 }
 
 /**
@@ -437,19 +421,4 @@ int memuser_dma_free(void *addr,size_t size) {
     memphys_dma_free(paging_unmap(addr+i));
   }
   return 0;
-}
-
-/**
- * Clones an address space
- *  @param addrspace Address space to be clone
- *  @return New address space
- */
-addrspace_t *memuser_clone_addrspace(proc_t *proc,addrspace_t *addrspace) {
-  addrspace_t *new = malloc(sizeof(addrspace_t));
-  new->proc = proc;
-  new->pages_loaded = llist_copy(addrspace->pages_loaded);
-  new->pages_imaginary = llist_copy(addrspace->pages_imaginary);
-  new->pages_swapped = llist_copy(addrspace->pages_swapped);
-  new->pagedir = memuser_clone_pagedir(addrspace->pagedir);
-  return new;
 }

@@ -16,30 +16,16 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _MISC_H_
-#define _MISC_H_
-
 #include <sys/types.h>
-#include <syscall.h>
-#include <signal.h>
+#include <rpc.h>
 
-// memory functions
-#define mem_getphysaddr(virt) ((void*)syscall_call(SYSCALL_MEM_GETPHYSADDR,1,virt))
-#define mem_alloc(size)       ((void*)syscall_call(SYSCALL_MEM_MALLOC,1,size))
-#define mem_getvga()          ((void*)syscall_call(SYSCALL_MEM_GETVGA,0))
-#define USERSPACE_ADDRESS     0x40000000 /* 1GB */
-#define USERSPACE_SIZE        0xBFBFF000 /* 3GB-4MB-4KB */
+#include <stdio.h>
 
-// VFS
-int vfs_mount(const char *fs,const char *mountpoint,const char *dev,int readonly);
-int vfs_unmount(const char *fs,const char *mountpoint);
+int *_fork_stack;
+pid_t _fork_child_entry();
 
-// Execute
-int execute(const char *path,char *argv[]);
-
-// Initialization
-static inline void init_ready() {
-  kill(1,SIGUSR1);
+pid_t fork() {
+  asm("mov %%ebp,%0":"=r"(_fork_stack):);
+  printf("test: stack: 0x%x\n",_fork_stack);
+  return rpc_call("proc_fork",0,_fork_child_entry);
 }
-
-#endif

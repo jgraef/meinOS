@@ -48,11 +48,23 @@ int proc_init() {
   if (syscall_create(SYSCALL_PROC_SETGID,proc_setgid,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_GETPARENT,proc_getparent,1)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_GETNAME,proc_getname,3)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_SETNAME,proc_setname,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_GETPIDBYNAME,proc_getpidbyname,1)==-1) return -1;
-  if (syscall_create(SYSCALL_PROC_GETVAR,proc_getvar,0)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_GETVAR,proc_getvar,1)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_SETVAR,proc_setvar,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_EXIT,proc_exit,1)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_ABORT,proc_abort,0)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_STOP,proc_stop,0)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_CREATE,proc_create_syscall,4)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_DESTROY,proc_destroy_syscall,1)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_MEMMAP,proc_memmap,6)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_MEMALLOC,proc_memalloc,4)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_MEMUNMAP,proc_memunmap,2)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_MEMFREE,proc_memfree,2)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_MEMGET,proc_memget,6)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_SYSTEM,proc_system,2)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_JUMP,proc_jump,2)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_CREATESTACK,proc_createstack,1)==-1) return -1;
   return 0;
 }
 
@@ -61,7 +73,7 @@ int proc_init() {
  *  @param name Process name
  *  @return Process
  */
-proc_t *proc_create(char *name,uid_t uid,gid_t gid,proc_t *parent,int running) {
+proc_t *proc_create(char *name,uid_t uid,gid_t gid,proc_t *parent,int running,int system) {
   proc_t *new = malloc(sizeof(proc_t));
 
   new->pid = proc_nextpid++;
@@ -72,6 +84,7 @@ proc_t *proc_create(char *name,uid_t uid,gid_t gid,proc_t *parent,int running) {
   new->egid = gid;
   new->sgid = gid;
   new->name = strdup(name);
+  new->system = system;
   new->parent = parent;
   if (parent!=NULL) llist_push(parent->children,new);
   new->children = llist_create();
@@ -84,12 +97,9 @@ proc_t *proc_create(char *name,uid_t uid,gid_t gid,proc_t *parent,int running) {
   new->registers.gs = IDX2SEL(4,PRIV_USER);
   new->registers.ss = IDX2SEL(4,PRIV_USER);
   new->addrspace = memuser_create_addrspace(new);
-  new->registers.esp = (uint32_t)memuser_create_stack(new->addrspace);
-  //memset(&(new->irq_handler),0,sizeof(new->irq_handler));
   new->time_handler = llist_create();
   new->nice = 0;
   new->ticks_rem = NICE2TICKS(new->nice);
-  //new->ipc_objects = llist_create();
   new->var = -1;
   new->defunc = 0;
   new->is_sleeping = !running;
@@ -354,6 +364,23 @@ ssize_t proc_getname(pid_t pid,char *buf,size_t maxlen) {
 }
 
 /**
+ * Sets new process name (Syscall)
+ *  @param proc_pid PID
+ *  @param name New process name
+ *  @return Success?
+ */
+int proc_setname(pid_t proc_pid,const char *name) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL && proc!=proc_current) {
+      free(proc->name);
+      proc->name = strdup(name);
+    }
+  }
+  return -1;
+}
+
+/**
  * Gets PID by process name
  *  @param name Process name
  *  @return PID of process
@@ -369,10 +396,23 @@ pid_t proc_getpidbyname(const char *name) {
 
 /**
  * Gets private variable
+ *  @param pid Process' PID
  *  @return private variable
  */
-int proc_getvar() {
-  return proc_current->var;
+int proc_getvar(pid_t pid) {
+  proc_t *proc = proc_find(pid);
+  if (proc!=NULL) return proc->var;
+  else return -1;
+}
+
+/**
+ * Sets private variable
+ *  @param pid Process' PID
+ *  @param var New private variable
+ */
+void proc_setvar(pid_t pid,int var) {
+  proc_t *proc = proc_find(pid);
+  if (proc!=NULL) proc->var = var;
 }
 
 /**
@@ -468,31 +508,183 @@ void proc_idle() {
 }
 
 /**
- * Forks a process (share virtual memory)
- *  @param proc Process to be forked
- *  @return New process
+ * Creates a process (Syscall)
+ *  @param name Name
+ *  @param uid UID
+ *  @param gid GID
+ *  @param parent_pid Parent's PID
+ *  @return PID of created process
  */
-proc_t *proc_vfork(proc_t *proc) {
-  proc_t *new = malloc(sizeof(proc_t));
-  memcpy(new,proc,sizeof(proc_t));
-  new->pid = proc_nextpid++;
-  new->parent = proc;
-  new->name = strdup(proc->name);
-  llist_push(proc->children,new);
-  new->time_handler = llist_copy(proc->time_handler);
-  new->ticks_rem = NICE2TICKS(new->nice);
-  llist_push(proc_all,new);
-  llist_push(proc_running,new);
-  return new;
+pid_t proc_create_syscall(char *name,uid_t uid,gid_t gid,pid_t parent_pid) {
+  if (proc_current->system) {
+    proc_t *parent = proc_find(parent_pid);
+    if (parent!=NULL) {
+      proc_t *proc = proc_create(name,uid,gid,parent,0,0);
+      return proc!=NULL?proc->pid:-1;
+    }
+  }
+  return -1;
 }
 
 /**
- * Forks a process
- *  @param proc Process to be forked
- *  @return New process
+ * Destroys a process (Syscall)
+ *  @param proc_pid PID of process to destroy
  */
-proc_t *proc_fork(proc_t *proc) {
-  proc_t *new = proc_vfork(proc);
-  new->addrspace = memuser_clone_addrspace(new,proc->addrspace);
-  return new;
+int proc_destroy_syscall(pid_t proc_pid) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL && proc!=proc_current) {
+      return proc_destroy(proc);
+    }
+  }
+  return -1;
+}
+
+/**
+ * Maps a page to a process' address space
+ *  @param proc_pid Process' PID
+ *  @param virt Virtual address where to map
+ *  @param phys Address of physical page
+ *  @param writable Whether to map it writable
+ *  @param cow Map page as COW
+ *  @return Success?
+ *  @todo remove memuser_load_addrspace()
+ */
+int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,int cow) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      pte_t pte = paging_getpte_pd(virt,proc->addrspace->pagedir);
+      if (!pte.exists) {
+        memuser_load_addrspace(proc->addrspace);
+        paging_map_pd(virt,phys,1,writable && !cow,swappable,cow && writable,proc->addrspace->pagedir);
+        memuser_load_addrspace(proc_current->addrspace);
+        llist_push(proc->addrspace->pages_loaded,virt);
+        return 0;
+      }
+    }
+  }
+  return -1;
+}
+
+int proc_memalloc(pid_t proc_pid,void *virt,int writable,int swappable) {
+  void *page = memphys_alloc();
+  if (proc_memmap(proc_pid,virt,page,writable,swappable,0)==0) return 0;
+  else {
+    memphys_free(page);
+    return -1;
+  }
+}
+
+/**
+ * Unmaps a page from a process' address space
+ *  @param proc_pid Process' PID
+ *  @param virt Virtual address to unmap
+ *  @return Success?
+ */
+int proc_memunmap(pid_t proc_pid,void *virt) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      memuser_load_addrspace(proc->addrspace);
+      paging_unmap(virt);
+      memuser_load_addrspace(proc_current->addrspace);
+      llist_remove(proc->addrspace->pages_imaginary,llist_find(proc->addrspace->pages_imaginary,virt));
+      return 0;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Frees a page from a process' address space
+ *  @param proc_pid Process' PID
+ *  @param virt Virtual address to unmap
+ *  @return Success?
+ */
+int proc_memfree(pid_t proc_pid,void *virt) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      memuser_load_addrspace(proc->addrspace);
+      memphys_free(paging_unmap(virt));
+      memuser_load_addrspace(proc_current->addrspace);
+      llist_remove(proc->addrspace->pages_imaginary,llist_find(proc->addrspace->pages_imaginary,virt));
+      return 0;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Gets information about page of process
+ *  @param proc_pid Process' PID
+ *  @param virt Virtual address to get information about
+ *  @return Success?
+ */
+void *proc_memget(pid_t proc_pid,void *virt,int *exists,int *writable,int *swappable,int *cow) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      pte_t pte = paging_getpte_pd(virt,proc->addrspace->pagedir);
+      if (exists!=NULL) *exists = pte.exists;
+      if (writable!=NULL) *writable = pte.writable;
+      if (swappable!=NULL) *swappable = pte.swappable;
+      if (cow!=NULL) *cow = pte.cow;
+      return pte.in_memory?PAGE2ADDR(pte.page):NULL;
+    }
+  }
+  *exists = 0;
+  return NULL;
+}
+
+/**
+ * Gives/Withdraws a process system privilegs
+ *  @param proc_pid Process' PID
+ *  @param system Whether process should have system privilegs or not
+ *  @return Success?
+ */
+int proc_system(pid_t proc_pid,int system) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL && (system==1 || proc_current==proc->parent || proc_current==proc)) {
+      proc->system = system;
+      return 0;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Jumps a process to a specified destination
+ *  @param proc_pid Process' PID
+ *  @param dest Destination to jump to
+ *  @return Success
+ */
+int proc_jump(pid_t proc_pid,void *dest) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      proc->registers.eip = (uint32_t)dest;
+      return 0;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Creates a stack for a process
+ *  @param proc_pid Process' PID
+ *  @return Stack address
+ */
+int *proc_createstack(pid_t proc_pid) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL && proc->addrspace->stack!=NULL) {
+      int *stack = memuser_create_stack(proc->addrspace);
+      proc->registers.esp = (uint32_t)stack;
+      return stack;
+    }
+  }
+  return NULL;
 }

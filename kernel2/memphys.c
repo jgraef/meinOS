@@ -60,6 +60,7 @@ int memphys_init() {
  *  @param addr Address to push on stack
  */
 void memphys_push(void *addr) {
+  if (addr==NULL) return;
   if (memphys_stackptr==memphys_stackend) {
     // use pushed page as stackpage
     if (paging_map(memphys_stackend,addr,0,1)<0) panic("Error while mapping stackpage: 0x%x",memphys_stackend);

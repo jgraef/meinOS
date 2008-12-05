@@ -18,7 +18,7 @@
 
 #include <sys/types.h>
 #include <stdio.h>
-#include <misc.h>
+#include <proc.h>
 #include <unistd.h>
 
 void _close_all_filehandles(); ///< @see files.c

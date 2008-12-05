@@ -264,16 +264,18 @@ int paging_setpte_pd(void *virt,pte_t pte,pd_t pagedir) {
 }
 
 /**
- * Maps a page
+ * Maps a page (extended)
  *  @param virt Virtual address
  *  @param phys Physical address
  *  @param user Whether page is accessable by user
  *  @param writable Whether page is writable
+ *  @param swappable Whether page is swappable
+ *  @param cow Whether page is COW
+ *  @param pagedir Pagedir to do mapping in
  *  @return 0=Success; -1=Failure
  */
-int paging_map(void *virt,void *phys,int user,int writable) {
-  if (!paging_getpde(virt).exists) {
-if (memuser_debug==2) kprintf("<A:0x%x><0x%x>\n",paging_getpde(virt),paging_curpd);
+int paging_map_pd(void *virt,void *phys,int user,int writable,int swappable,int cow,pd_t pagedir) {
+  if (!paging_getpde_pd(virt,pagedir).exists) {
     pt_t pagetable = (pt_t)(PAGETABLES_ADDRESS+ADDR2PDE(virt)*PAGE_SIZE);
     pde_t new;
     memset(&new,0,sizeof(new));
@@ -282,11 +284,10 @@ if (memuser_debug==2) kprintf("<A:0x%x><0x%x>\n",paging_getpde(virt),paging_curp
     new.user = 1;
     new.writable = 1;
     new.exists = 1;
-    if (paging_setpde(virt,new)<0) return -1;
+    if (paging_setpde_pd(virt,new,pagedir)<0) return -1;
     paging_flushtlb(pagetable);
-if (memuser_debug==1) kprintf("memset(0x%x,0,0x1000)\n<C:0x%x><0x%x>\n",pagetable,new,paging_curpd);
-if (memuser_debug==2) while (1);
     memset(pagetable,0,PAGE_SIZE);
+    if (pagedir!=paging_curpd) kprintf("kernel: new pagetable\n");
   }
   pte_t new;
   memset(&new,0,sizeof(new));
@@ -295,8 +296,12 @@ if (memuser_debug==2) while (1);
   new.user = user?1:0;
   new.writable = writable?1:0;
   new.in_memory = 1;
-  new.swappable = 1;
-  if (paging_setpte(virt,new)<0) return -1;
+  new.swappable = swappable;
+  new.cow = cow;
+  if (paging_setpte_pd(virt,new,pagedir)<0) return -1;
+  if (pagedir!=paging_curpd) {
+    kprintf("kernel: mapped 0x%x to 0x%x\n",virt,PAGE2ADDR(new.page));
+  }
   return 0;
 }
 
@@ -308,6 +313,7 @@ if (memuser_debug==2) while (1);
 void *paging_unmap(void *virt) {
   void *addr = PAGE2ADDR(paging_getpte(virt).page);
   pte_t pte;
+  if (!pte.in_memory) addr = NULL;
   memset(&pte,0,sizeof(pte));
   paging_setpte(virt,pte);
   return addr;

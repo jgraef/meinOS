@@ -1,7 +1,7 @@
 -include ../../Makefile.config
 
 all:
-	$(APPS_CC) -o init init.c
+	$(APPS_CC) -o init *.c
 	$(APPS_STRIP) init
 	cp init ../../files/bin
 

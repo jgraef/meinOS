@@ -17,7 +17,7 @@
 */
 
 #include <stdio.h>
-#include <misc.h>
+#include <proc.h>
 #include <unistd.h>
 #include <stdlib.h>
 

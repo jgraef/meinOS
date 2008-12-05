@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <ioport.h>
 #include <biosint.h>
+#include <perm.h>
 
 char *basename(char *path) {
   size_t i;
@@ -114,11 +115,12 @@ int main(multiboot_info_t *mbi,uint32_t magic) {
   for (i=0;(addr = multiboot_get_mod(i,&file,&size));i++) {
     name = basename(file);
     kprintf("    %s:\t%s:\t0x%x / 0x%x...",name,file,addr,size);
-    proc_t *new = proc_create(name,1,1,NULL,(i==0));
+    proc_t *new = proc_create(name,PERM_ROOTUID,PERM_ROOTGID,NULL,(i==0),(i==0));
     if (new!=NULL) {
       void *entrypoint = elf_load(new->addrspace,addr,size);
       if (entrypoint!=NULL) {
         new->registers.eip = (uint32_t)entrypoint;
+        new->registers.esp = (uint32_t)memuser_create_stack(new->addrspace);
         kprintf("(pid=%d) done\n",new->pid);
         continue;
       }
