@@ -59,7 +59,7 @@ typedef struct {
   uint32_t size;
   uint64_t base;
   uint64_t length;
-  multiboot_mmap_type_t type:4;
+  multiboot_mmap_type_t type:32;
 } __attribute__ ((packed)) multiboot_mmape_t;
 
 typedef struct {
