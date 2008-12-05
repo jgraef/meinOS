@@ -61,7 +61,7 @@ static int cdi_fs_mount(struct cdi_fs_driver *driver,const char *fs_name,const c
     struct cdi_fs_filesystem *filesystem = malloc(sizeof(struct cdi_fs_filesystem));
     filesystem->driver = driver;
     filesystem->error = 0;
-    filesystem->read_only = readonly;
+    filesystem->read_only = readonly/*||(access(dev,W_OK)==-1)*/;
     filesystem->fsid = fsid;
     filesystem->last_fh = 0;
     filesystem->files = cdi_list_create();
@@ -188,7 +188,7 @@ static inline int cdi_fs_loadres(struct cdi_fs_stream *stream) {
 static inline int cdi_fs_unloadres(struct cdi_fs_stream *stream) {
   fprintf(stderr,"cdi_fs_unloadres(0x%x)\n",stream);
   /// @todo Zum Verringern von IO, aber wieder normal machen!
-  return 1; //stream->res->loaded?(stream->res->res->load(stream)?0:-1):0;
+  return stream->res->loaded?(stream->res->res->load(stream)?0:-1):0;
 }
 
 /**

@@ -23,6 +23,7 @@
 
 #define LAPIC_PHYS_ADDRESS 0xFEE00000
 
+/*
 #define LAPIC_REG_ID            0x020
 #define LAPIC_REG_VERSION       0x030
 #define LAPIC_REG_TPR           0x080
@@ -44,11 +45,77 @@
 #define LAPIC_REG_TIMER_DEVIDE  0x3E0
 
 #define lapic_reg(off) (*((uint32_t*)(lapic+(off))))
+*/
 
-void *lapic;
+#define LAPIC_PIT_CALIBRATE_INTERVAL 10
+
+typedef uint32_t lapic_reg_t __attribute__((aligned(0x10))) ;
+
+struct lapic_regs {
+  lapic_reg_t res0;
+  lapic_reg_t res1;
+  lapic_reg_t id;
+  lapic_reg_t version;
+  lapic_reg_t res2;
+  lapic_reg_t res3;
+  lapic_reg_t res4;
+  lapic_reg_t res5;
+  lapic_reg_t tpr;
+  lapic_reg_t apr;
+  lapic_reg_t ppr;
+  lapic_reg_t eoi;
+  lapic_reg_t res6;
+  lapic_reg_t ldr;
+  lapic_reg_t dfr;
+  lapic_reg_t spurious;
+  lapic_reg_t isr_0_31;
+  lapic_reg_t isr_32_63;
+  lapic_reg_t isr_64_95;
+  lapic_reg_t isr_96_127;
+  lapic_reg_t isr_128_159;
+  lapic_reg_t isr_160_191;
+  lapic_reg_t isr_192_223;
+  lapic_reg_t isr_224_255;
+  lapic_reg_t tmr_0_31;
+  lapic_reg_t tmr_32_63;
+  lapic_reg_t tmr_64_95;
+  lapic_reg_t tmr_96_127;
+  lapic_reg_t tmr_128_159;
+  lapic_reg_t tmr_160_191;
+  lapic_reg_t tmr_192_223;
+  lapic_reg_t tmr_224_255;
+  lapic_reg_t irr_0_31;
+  lapic_reg_t irr_32_63;
+  lapic_reg_t irr_64_95;
+  lapic_reg_t irr_96_127;
+  lapic_reg_t irr_128_159;
+  lapic_reg_t irr_160_191;
+  lapic_reg_t irr_192_223;
+  lapic_reg_t irr_224_255;
+  lapic_reg_t error;
+  lapic_reg_t res7;
+  lapic_reg_t icr_0_31;
+  lapic_reg_t icr_32_63;
+  lapic_reg_t lvt_timer;
+  lapic_reg_t lvt_thermal;
+  lapic_reg_t lvt_pmc;
+  lapic_reg_t lvt_lint0;
+  lapic_reg_t lvt_lint1;
+  lapic_reg_t lvt_error;
+  lapic_reg_t timer_init_count;
+  lapic_reg_t timer_cur_count;
+  lapic_reg_t res8;
+  lapic_reg_t res9;
+  lapic_reg_t res10;
+  lapic_reg_t res11;
+  lapic_reg_t timer_divide;
+  lapic_reg_t res12;
+};
+
+struct lapic_regs *lapic;
 
 int lapic_init();
 void lapic_eoi();
-void lapic_timer_init();
+void lapic_timer_calibrate();
 
 #endif

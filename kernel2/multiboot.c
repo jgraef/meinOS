@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sizes.h>
 #include <stddef.h>
+#include <debug.h>
 #include <multiboot.h>
 
 /// Pointer to multiboot structure

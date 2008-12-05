@@ -4,6 +4,7 @@ all:
 	cp -R include/* $(GCC_TOOLCHAIN)/include/
 
 	make -C lib/
+	make -C com/
 	make -C devfs/
 	make -C floppy/
 	make -C vfs/
@@ -24,11 +25,11 @@ all:
 	make -C fat/
 
 	#make -C joystick/
-	#make -C com/
 	#make -C ext2/
 
 clean:
 	make -C lib/ clean
+	make -C com/ clean
 	make -C devfs/ clean
 	make -C floppy/ clean
 	make -C vfs/ clean
@@ -49,5 +50,4 @@ clean:
 	make -C fat/ clean
 
 	#make -C joystick/ clean
-	#make -C com/ clean
 	#make -C ext2/ clean

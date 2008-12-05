@@ -30,6 +30,7 @@
  * Initializes LAPIC
  *  @return 0=Success; -1=Failure
  */
+#include <stddef.h>
 int lapic_init() {
   uint32_t edx = 0;
   cpu_t *cpu = cpu_this;
@@ -44,15 +45,16 @@ int lapic_init() {
     lapic = memkernel_findvirt(1)+PAGEOFF(LAPIC_PHYS_ADDRESS);
     if (paging_map(PAGEDOWN(lapic),PAGEDOWN(LAPIC_PHYS_ADDRESS),0,1)<0) panic("Cannot map LAPIC\n");
 
-    lapic_reg(LAPIC_REG_TPR) = 0x20;
-    //lapic_timer_init();
-    //lapic_reg(LAPIC_REG_LVT_TIMER) = 0x20030;
-    lapic_reg(LAPIC_REG_LVT_THERMAL) = 0x20031;
-    lapic_reg(LAPIC_REG_LVT_PERFOR) = 0x20032;
-    lapic_reg(LAPIC_REG_LVT_LINT0) = 0x08700;
-    lapic_reg(LAPIC_REG_LVT_LINT1) = 0x00400;
-    lapic_reg(LAPIC_REG_LVT_ERROR) = 0x20035;
-    lapic_reg(LAPIC_REG_SPURIOUS) = 0x0010F;
+    lapic->tpr = 0x20;
+    lapic->lvt_timer   = 0x20030;
+    lapic->lvt_thermal = 0x20031;
+    lapic->lvt_pmc     = 0x20032;
+    lapic->lvt_lint0   = 0x08700;
+    lapic->lvt_lint1   = 0x08700;
+    lapic->lvt_error   = 0x20035;
+    lapic->spurious    = 0x0010F;
+
+    pic_pit_setinterval(0,LAPIC_PIT_CALIBRATE_INTERVAL);
 
     return 0;
   }
@@ -69,5 +71,12 @@ int lapic_init() {
  * Sends EOI
  */
 void lapic_eoi() {
-  lapic_reg(LAPIC_REG_EOI) = 0;
+  lapic->eoi = 0;
+}
+
+void lapic_timer_calibrate() {
+  static unsigned int ticks = 0;
+  static unsigned int start = 0;
+  static unsigned int end = 0;
+  kprintf("LAPIC timer calibration: ticks=%u; start=%u; end=%u\n",ticks,start,end);
 }
