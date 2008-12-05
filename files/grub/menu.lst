@@ -19,7 +19,7 @@ module /bin/pci
 module /bin/psdev
 module /bin/ramdisk
 module /bin/console
-module /bin/cirrus
+module /bin/login
 boot
 
 title Memory Test

@@ -21,6 +21,8 @@
 #include <limits.h>
 #include <pwd.h>
 
+#define DEFAULT_SHELL "sh"
+
 #ifdef LOGIN
 FILE *console;
 
@@ -66,17 +68,18 @@ char *login() {
 #endif
 
 void shell_run(char *shell) {
-  printf("[LOGIN ] execute(%s)\n",shell);
+  printf("login: execute(%s)\n",shell);
+while (1);
   //pid_t pid = execute(shell);
   //waitpid(pid);
 }
 
 int main(int argc,char *argv[]) {
-  if (init_input()==-1) abort();
 #ifdef LOGIN
+  if (init_input()==-1) abort();
   while (1) shell_run(login());
 #else
-  shell_run(login());
+  shell_run(DEFAULT_SHELL);
 #endif
   printf("TODO %s:%d: Run shutdown\n",__FILE__,__LINE__);
   while (1);
