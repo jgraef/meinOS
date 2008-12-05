@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <rpc.h>
 #include <unistd.h>
-#include <misc.h>
+#include <proc.h>
 
 struct fuse_chan *fuse_mount(const char *mountpoint,struct fuse_args *args) {
   char *fsname = getname(getpid());

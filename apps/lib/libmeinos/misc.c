@@ -31,18 +31,6 @@ void _libmeinos_init() {
 }
 
 /**
- * Gets name of a process
- *  @param pid PID of process
- *  @return Name of process (can be passed to free())
- */
-char *getname(pid_t pid) {
-  size_t size = syscall_call(SYSCALL_PROC_GETNAME,3,pid,NULL,0);
-  char *buf = malloc(size);
-  syscall_call(SYSCALL_PROC_GETNAME,3,pid,buf,size);
-  return buf;
-}
-
-/**
  * Mounts a filesystem
  *  @param fs FS name
  *  @param mountpoint Mountpoint

@@ -27,7 +27,7 @@
 #include <llist.h>
 #include <rpc.h>
 #include <errno.h>
-#include <misc.h>
+#include <proc.h>
 #include <sys/shm.h>
 
 static llist_t fslist;
