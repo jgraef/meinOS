@@ -16,9 +16,11 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <unistd.h>
 #include <stdio.h>
 
 int main(int argc,char *argv[]) {
   printf("shell: hello\n");
-  while (1);
+  sleep(1);
+  return 0;
 }

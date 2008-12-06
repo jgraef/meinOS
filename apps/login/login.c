@@ -16,12 +16,15 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
+#include <misc.h>
 #include <pwd.h>
 
-#define DEFAULT_SHELL "sh"
+/// @todo this should be "/bin/sh" (when symlinks work)
+#define DEFAULT_SHELL "/boot/bin/sh"
 
 #ifdef LOGIN
 FILE *console;
@@ -68,10 +71,8 @@ char *login() {
 #endif
 
 void shell_run(char *shell) {
-  printf("login: execute(%s)\n",shell);
-while (1);
-  //pid_t pid = execute(shell);
-  //waitpid(pid);
+  pid_t pid = execute(shell,NULL,NULL,NULL,NULL);
+  waitpid(pid,NULL,0);
 }
 
 int main(int argc,char *argv[]) {

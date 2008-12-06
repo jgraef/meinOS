@@ -65,6 +65,7 @@ int proc_init() {
   if (syscall_create(SYSCALL_PROC_SYSTEM,proc_system,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_JUMP,proc_jump,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_CREATESTACK,proc_createstack,1)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_WAITPID,proc_waitpid,3)==-1) return -1;
   return 0;
 }
 
@@ -145,6 +146,22 @@ proc_t *proc_find(pid_t pid) {
     if (proc->pid==pid) return proc;
   }
   return NULL;
+}
+
+/**
+ * Checks if proc is a child of parent
+ *  @param parent Parent process
+ *  @param proc Process to check if it's a child of proc
+ *  @return If proc is a child of parent
+ */
+int proc_ischild(proc_t *parent,proc_t *proc) {
+  proc_t *child;
+  size_t i;
+
+  for (i=0;(child = llist_get(parent->children,i));i++) {
+    if (proc==child) return 1;
+  }
+  return 0;
 }
 
 /**
@@ -416,10 +433,36 @@ void proc_setvar(pid_t pid,int var) {
 }
 
 /**
+ * Waits for child(ren)
+ *  @param pid PID of child to wait for (-1 for all childs)
+ *  @param stat_loc Reference for status
+ *  @param options Options
+ */
+pid_t proc_waitpid(pid_t pid,int *stat_loc,int options) {
+  proc_current->wait_pid = pid;
+  proc_current->wait_stat = stat_loc;
+  proc_current->wait = 1;
+  proc_sleep(proc_current);
+  return -1;
+}
+
+/**
  * Exits process (Syscall)
  *  @param ret Return value
  */
 void proc_exit(int ret) {
+  if (proc_current->parent!=NULL) {
+    if (proc_current->parent->wait) {
+      pid_t pid = proc_current->parent->wait_pid;
+      if (pid==-1 || (pid>0 && pid==proc_current->pid) || (pid==0 && proc_current->gid==proc_current->parent->gid) || (pid<-1 && -pid==proc_current->gid)) {
+        proc_current->parent->registers.eax = proc_current->pid;
+        if (proc_current->parent->wait_stat!=NULL) *(proc_current->parent->wait_stat) = ret;
+        proc_current->parent->wait = 0;
+        proc_wake(proc_current->parent);
+      }
+    }
+  }
+
   proc_current->ret = ret;
   proc_current->defunc = 1;
   llist_remove(proc_running,llist_find(proc_running,proc_current));

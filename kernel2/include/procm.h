@@ -112,6 +112,11 @@ struct proc_S {
   /// VM8086 Pagedir
   pd_t vm86_pagedir;
 
+  /// waitpid()
+  int wait;
+  pid_t wait_pid;
+  int *wait_stat;
+
   /// VM8086 segment registers
   struct vm86_segmentregs vm86_segregs;
 };
@@ -140,6 +145,7 @@ int proc_setname(pid_t pid,const char *name);
 pid_t proc_getpidbyname(const char *name);
 int proc_getvar(pid_t pid);
 void proc_setvar(pid_t pid,int var);
+pid_t proc_waitpid(pid_t pid,int *stat_loc,int options);
 void proc_exit(int ret);
 void proc_abort();
 void proc_continue();

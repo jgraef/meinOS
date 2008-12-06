@@ -85,8 +85,8 @@
 #define SYSCALL_PROC_EXIT           51
 #define SYSCALL_PROC_ABORT          52
 #define SYSCALL_PROC_STOP           53
-#define SYSCALL_PROC_CREATE         54
-#define SYSCALL_PROC_DESTROY        55
+#define SYSCALL_PROC_CREATE         54 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_DESTROY        55 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_MEMMAP         56 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_MEMALLOC       57 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_MEMUNMAP       58 /* ONLY FOR SYSTEM */
@@ -96,31 +96,32 @@
 #define SYSCALL_PROC_SYSTEM         62 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_JUMP           63 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_CREATESTACK    64 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_WAITPID        65
 
 // I/O port
-#define SYSCALL_IO_REG              65 /* ONLY FOR ROOT */
-#define SYSCALL_IO_UNREG            66 /* ONLY FOR ROOT */
+#define SYSCALL_IO_REG              66 /* ONLY FOR ROOT */
+#define SYSCALL_IO_UNREG            67 /* ONLY FOR ROOT */
 
 // Timer
-#define SYSCALL_TIME_HANDLER        67
-#define SYSCALL_TIME_SLEEP          68
-#define SYSCALL_TIME_USLEEP         69
-#define SYSCALL_TIME_GETTICKS       70
+#define SYSCALL_TIME_HANDLER        68
+#define SYSCALL_TIME_SLEEP          69
+#define SYSCALL_TIME_USLEEP         70
+#define SYSCALL_TIME_GETTICKS       71
 
 // IRQ
-#define SYSCALL_IRQ_HANDLER         71 /* ONLY FOR ROOT */
-#define SYSCALL_IRQ_SLEEP           72 /* ONLY FOR ROOT */
+#define SYSCALL_IRQ_HANDLER         72 /* ONLY FOR ROOT */
+#define SYSCALL_IRQ_SLEEP           73 /* ONLY FOR ROOT */
 
 // Signal
-#define SYSCALL_SIG_SETUP           73
-#define SYSCALL_SIG_SEND            74
+#define SYSCALL_SIG_SETUP           74
+#define SYSCALL_SIG_SEND            75
 
 // Misc
-#define SYSCALL_MISC_BIOSINT        75 /* ONLY FOR ROOT */
+#define SYSCALL_MISC_BIOSINT        76 /* ONLY FOR ROOT */
 
 // Debug
 /// @deprecated Only for debugging
-#define SYSCALL_PUTSN               76
-#define SYSCALL_FOURTYTWO           77
+#define SYSCALL_PUTSN               77
+#define SYSCALL_FOURTYTWO           78
 
 #endif
