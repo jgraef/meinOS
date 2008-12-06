@@ -21,7 +21,3 @@ module /bin/ramdisk
 module /bin/console
 module /bin/init2
 boot
-
-title Memory Test
-kernel /memtest.bin
-boot
