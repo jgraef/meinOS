@@ -347,3 +347,8 @@ FILE *freopen(const char *filename,const char *oflag,FILE *stream) {
 int fscanf(FILE *stream,const char *format,...) {
   return 0;
 }
+
+/// @todo Implement me
+int ungetc(int c,FILE *stream) {
+  return 0;
+}

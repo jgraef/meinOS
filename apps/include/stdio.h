@@ -77,6 +77,7 @@ size_t _fwrite(const void *ptr,size_t size,FILE *stream);
 
 char *fgets(char *s,int n,FILE *stream);
 size_t _fread(void *ptr,size_t size,FILE *stream);
+int ungetc(int c,FILE *stream);
 
 int printf(const char * format, ...);
 int sprintf(char * buffer, const char * format, ...);
