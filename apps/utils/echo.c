@@ -23,7 +23,7 @@
 #include <stddef.h>
 
 void usage(char *prog,int ret) {
-  FILE *stream = ret==0?stdout:stderr;
+  FILE *stream = stdout;//ret==0?stdout:stderr;
   fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
   fprintf(stream,"Echo the STRING(s) to standard output\n");
   fprintf(stream,"\t-n\tdo not output the trailing newline\n");
@@ -67,11 +67,11 @@ char *escape_string(char *str,int *newline) {
 }
 
 int main(int argc,char *argv[]) {
-  int c,i;
+  int c;
   int newline = 1;
   int escape = 0;
 
-  while ((c = getopt(argc,argv,":neEhv"))) {
+  while ((c = getopt(argc,argv,":neEhv"))!=-1) {
     switch(c) {
       case 'n':
         newline = 0;
@@ -96,13 +96,13 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  for (i=optind;i<argc;i++) {
+  for (c=optind;c<argc;c++) {
     char *string;
-    if (escape) string = escape_string(argv[i],&newline);
-    else string = argv[i];
+    if (escape) string = escape_string(argv[c],&newline);
+    else string = argv[c];
 
-    puts(string);
-    if (i<argc-1) putchar(' ');
+    printf("%s",string);
+    if (c<argc-1) putchar(' ');
 
     if (escape) free(string);
   }
