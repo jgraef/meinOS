@@ -401,7 +401,7 @@ pid_t proc_getpidbyname(const char *name) {
  */
 int proc_getvar(pid_t pid) {
   proc_t *proc = proc_find(pid);
-  if (proc!=NULL) return proc->var;
+  if (proc!=NULL && (proc_current->system || proc_current==proc)) return proc->var;
   else return -1;
 }
 
@@ -567,6 +567,14 @@ int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,
   return -1;
 }
 
+/**
+ * Allocates a page for a process
+ *  @param proc_pid Process' PID
+ *  @param virt Virtual address
+ *  @param writable Whether to alloc wirtable memory
+ *  @param swappable Whether memory should be swappable
+ *  @return Success?
+ */
 int proc_memalloc(pid_t proc_pid,void *virt,int writable,int swappable) {
   void *page = memphys_alloc();
   if (proc_memmap(proc_pid,virt,page,writable,swappable,0)==0) return 0;
@@ -680,7 +688,7 @@ int proc_jump(pid_t proc_pid,void *dest) {
 int *proc_createstack(pid_t proc_pid) {
   if (proc_current->system) {
     proc_t *proc = proc_find(proc_pid);
-    if (proc!=NULL && proc->addrspace->stack!=NULL) {
+    if (proc!=NULL && proc->addrspace->stack==NULL) {
       int *stack = memuser_create_stack(proc->addrspace);
       proc->registers.esp = (uint32_t)stack;
       return stack;

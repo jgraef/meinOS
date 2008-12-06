@@ -146,8 +146,13 @@ static pid_t proc_execute(const char *file,int var) {
 
   // Load executable
   void *entrypoint = exe_load(pid,file);
+  if (entrypoint==NULL) {
+    proc_destroy(pid);
+    return -1;
+  }
+
   proc_jump(pid,entrypoint);
-  proc_createstack(rpc_curpid);
+  proc_createstack(pid);
 
   proc_run(pid);
   return pid;

@@ -94,7 +94,7 @@ typedef struct {
   uint16_t shentsize;
   uint16_t shnum;
   uint16_t shstrndx;
-} elf_header_t;
+} __attribute__ ((packed)) elf_header_t;
 
 typedef struct {
   uint32_t type;
@@ -105,7 +105,7 @@ typedef struct {
   uint32_t memsz;
   uint32_t flags;
   uint32_t align;
-} elf_progheader_t;
+} __attribute__ ((packed)) elf_progheader_t;
 
 void *elf_load(pid_t pid,const char *file);
 

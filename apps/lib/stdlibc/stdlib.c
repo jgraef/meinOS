@@ -27,18 +27,21 @@
 #include <stdint.h>
 
 // some variables/functions needed
-void _fs_init();               ///< @see files.c
 void stdio_init();             ///< @see stdio.h
 void env_init();               ///< @see env.c
 llist_t atexit_list;           ///< @see stdlib.c
 void _close_all_filehandles(); ///< @see files.c
 void _signal_init();           ///< @see signal.c
+void _fs_init();               ///< @see apps/lib/stdlibc/files.c
 
-void _stdlib_init() {
+void _stdlib_init_pre() {
   rand_seed = rand_seed%RAND_MAX;
   errno = 0;
   atexit_list = llist_create();
   _signal_init();
+}
+
+void _stdlib_init_post() {
   _fs_init();
   stdio_init();
   env_init();

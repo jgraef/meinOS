@@ -16,24 +16,63 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/types.h>
+#include <sys/shm.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <syscall.h>
+#include <misc.h>
 
 int main(int argc,char *argv[]);
-int _stdlib_init();
-int _libmeinos_init();
+int _stdlib_init_pre();  ///< @see apps/lib/stdlibc/stdlib.c
+int _stdlib_init_post(); ///< @see apps/lib/stdlibc/stdlib.c
+int _libmeinos_init();   ///< @see apps/lib/libmeinos/misc.c
+
 
 #include <stdio.h>
 
+static void get_cmdline(struct process_data *data,char ***_argv,int *_argc) {
+  char **argv = NULL;
+  int argc;
+  size_t i = 0;
+
+  for (argc=0;data->cmdline[i]!=0;argc++) {
+    argv = realloc(argv,(argc+1)*sizeof(char*));
+    argv[argc] = data->cmdline+i;
+    i += strlen(data->cmdline+i)+1;
+  }
+
+  *_argv = argv;
+  *_argc = argc;
+}
+
 void _start() {
-  _stdlib_init();
+  int var,argc,ret;
+  char **argv;
+
+  // initialize libs
+  _stdlib_init_pre();
   _libmeinos_init();
 
-  // get initial data and call main
-  int argc = 0;
-  char **argv = NULL;
-  exit(main(argc,argv));
+  // get process data
+  var = syscall_call(SYSCALL_PROC_GETVAR,1,getpid());
+  if (var!=-1) {
+    _process_data = shmat(var,NULL,0);
+    if (_process_data!=NULL) get_cmdline(_process_data,&argv,&argc);
+  }
 
-  // in case exit did not work
+  // post initialize stdlibc
+  _stdlib_init_post();
+
+  // call main function
+  ret = main(argc,argv);
+
+  // remove process data
+  shmdt(_process_data);
+  shmctl(var,IPC_RMID,NULL);
+
+  // exit
+  exit(ret);
   while (1);
 }

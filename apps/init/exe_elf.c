@@ -44,17 +44,21 @@ static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t fi
   if (mem_addr<(void*)USERSPACE_ADDRESS) return -1;
   size_t i;
   int ret = 0;
+  pid_t own_pid = getpid();
 
-  for (i=0;i<file_size;i+=PAGE_SIZE) {
+  lseek(fh,file_addr,SEEK_SET);
+
+  for (i=0;i<mem_size;i+=PAGE_SIZE) {
     void *buf = mem_alloc(PAGE_SIZE);
-    read(fh,buf,i*PAGE_SIZE>file_size?PAGE_SIZE:file_size-i*PAGE_SIZE);
-    proc_memunmap(getpid(),buf);
-    if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)==-1) {
+    size_t cur_count = i>file_size?0:(i+PAGE_SIZE>file_size?file_size%PAGE_SIZE:PAGE_SIZE);
+    read(fh,buf,cur_count);
+    if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)==0) proc_memunmap(own_pid,buf);
+    else {
+      proc_memfree(own_pid,buf);
       ret = -1;
       break;
     }
   }
-
   return ret;
 }
 
@@ -68,13 +72,13 @@ void *elf_load(pid_t pid,const char *file) {
 
     // Header
     read(fh,&header,sizeof(header));
-    elf_validate(&header);
+    if (!elf_validate(&header)) return NULL;
     entrypoint = (void*)(header.entry);
 
     // Program Headers
     progheader = malloc(sizeof(elf_progheader_t)*header.phnum);
     lseek(fh,header.phoff,SEEK_SET);
-    read(fh,&progheader,sizeof(elf_progheader_t)*header.phnum);
+    read(fh,progheader,sizeof(elf_progheader_t)*header.phnum);
     for (i=0;i<header.phnum;i++) {
       if (progheader[i].type==PT_LOAD) {
         if (elf_loadseg(pid,fh,(void*)(progheader[i].vaddr),progheader[i].memsz,progheader[i].offset,progheader[i].filesz,(progheader[i].flags&PF_W)==PF_W)==-1) {

@@ -28,6 +28,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <path.h>
+#include <misc.h>
 
 #include <fcntl.h>       // open,close
 #include <unistd.h>      // read,write,seek,truncate
@@ -73,6 +74,9 @@ static struct {
   path_t *path;
 } workdir;
 static mode_t creation_mask;
+struct process_data *_process_data;
+
+static int _open_unnamed_pipe(int fh,int shmid);
 
 /**
  * Initializes File I/O
@@ -80,7 +84,7 @@ static mode_t creation_mask;
 void _fs_init() {
   filelist = llist_create();
   fslist = llist_create();
-  lastfh = 1;
+  lastfh = 3;
   creation_mask = 0777;
 
   // Init current workdir
@@ -88,6 +92,11 @@ void _fs_init() {
   if (path==NULL) path = "/";
   memset(&workdir,0,sizeof(workdir));
   chdir(path);
+
+  // Create stdin, stdout, stderr
+  _open_unnamed_pipe(STDIN_FILENO,_process_data->shmid_stdin);
+  _open_unnamed_pipe(STDOUT_FILENO,_process_data->shmid_stdout);
+  _open_unnamed_pipe(STDERR_FILENO,_process_data->shmid_stderr);
 }
 
 /**
@@ -179,6 +188,161 @@ static char *getabsolutepath(const char *relative) {
   }
   path_reject_dots(path);
   return path_output(path,NULL);
+}
+
+/**
+ * Creates an unnamed pipe
+ *  @param read Whether creator is reader
+ *  @return Filehandle
+ */
+int _create_unnamed_pipe(int read,int *_shmid) {
+  int shmid = shmget(IPC_PRIVATE,SHMMEM_SIZE,0);
+  if (shmid!=-1) {
+    size_t *shmbuf = shmat(shmid,NULL,0);
+    if (shmbuf!=NULL) {
+      struct filelist_item *new = malloc(sizeof(struct filelist_item));
+      memset(new,0,sizeof(struct filelist_item));
+      new->fh = getnew_fh();
+      new->oflag = read?O_RDONLY:O_WRONLY;
+      new->shmid = shmid;
+      new->shmbuf = shmbuf;
+      shmbuf[0] = read; // Direction
+      shmbuf[1] = 0; // Reserved for error
+      shmbuf[2] = 0; // Reading position
+      shmbuf[3] = 0; // Writing position
+      llist_push(filelist,new);
+      if (_shmid!=NULL) *_shmid = shmid;
+      return new->fh;
+    }
+    else shmctl(shmid,IPC_RMID,NULL);
+  }
+  return -1;
+}
+
+/**
+ * Destroys an unnamed pipe
+ *  @param fh Filehandle of unnamed pipe
+ *  @return Success?
+ */
+int _destroy_unnamed_pipe(int fh) {
+  struct filelist_item *file = filebyfh(fh);
+
+  if (file && file->fs==NULL) {
+    shmdt(file->shmbuf);
+    shmctl(file->shmid,IPC_RMID,NULL);
+    llist_remove(filelist,lidxbyfh(fh));
+    free(file);
+    return 0;
+  }
+  else errno = EBADF;
+  return -1;
+}
+
+/**
+ * Opens an unnamed pipe
+ *  @param fh Use this filehandle (-1 no specified filehandle)
+ *  @param shmid SHM object the unnamed pipe uses
+ *  @note If you specify the filehandle, be sure that it isn't used already
+ *  @return Filehandle
+ */
+static int _open_unnamed_pipe(int fh,int shmid) {
+  size_t *shmbuf = shmat(shmid,NULL,0);
+  if (shmbuf!=NULL) {
+    if (fh==-1) fh = getnew_fh();
+    struct filelist_item *new = malloc(sizeof(struct filelist_item));
+    memset(new,0,sizeof(struct filelist_item));
+    new->fh = fh;
+    new->oflag = shmbuf[0]?O_WRONLY:O_RDONLY;
+    new->shmid = shmid;
+    new->shmbuf = shmbuf;
+    llist_push(filelist,new);
+    return fh;
+  }
+  else return -1;
+}
+
+/**
+ * Destroys an unnamed pipe
+ *  @param fh Filehandle of unnamed pipe
+ *  @return Success?
+ */
+static int _close_unnamed_pipe(int fh) {
+  struct filelist_item *file = filebyfh(fh);
+
+  if (file && file->fs==NULL) {
+    shmdt(file->shmbuf);
+    llist_remove(filelist,lidxbyfh(fh));
+    free(file);
+    return 0;
+  }
+  else errno = EBADF;
+  return -1;
+}
+
+/**
+ * Reads an unnamed pipe
+ *  @param fh Filehandle
+ *  @param data Data buffer
+ *  @param size How many bytes to read
+ *  @return How many bytes read
+ */
+static size_t _read_unnamed_pipe(int fh,void *data,size_t size) {
+  struct filelist_item *file = filebyfh(fh);
+  ssize_t size_read = -1;
+
+  if (file && file->fs==NULL && file->oflag==O_RDONLY) {
+    size_t *pos_read = file->shmbuf+2*sizeof(size_t);
+    size_t *pos_write = file->shmbuf+3*sizeof(size_t);
+    void *buffer = file->shmbuf+4*sizeof(size_t);
+    size_t size_free = *pos_write>=*pos_read?*pos_write-*pos_read:*pos_write+SHMMEM_SIZE-4*sizeof(int)-*pos_read;
+
+    if (size>size_free) size = size_free;
+    if (*pos_write>=*pos_read) memcpy(data,buffer,size);
+    else {
+      size_t part1 = SHMMEM_SIZE-4*sizeof(int)-*pos_read;
+      size_t part2 = *pos_write;
+      memcpy(data,buffer+*pos_read,part1);
+      memcpy(data+part1,buffer,part2);
+    }
+    *pos_read = (*pos_read+size)%(SHMMEM_SIZE-4*sizeof(int));
+
+    size_read = size;
+  }
+  else errno = EBADF;
+  return size_read;
+}
+
+/**
+ * Writes an unnamed pipe
+ *  @param fh Filehandle
+ *  @param data Data buffer
+ *  @param size How many bytes to write
+ *  @return How many bytes written
+ */
+static size_t _write_unnamed_pipe(int fh,const void *data,size_t size) {
+  struct filelist_item *file = filebyfh(fh);
+  ssize_t size_written = -1;
+
+  if (file && file->fs==NULL && file->oflag==O_WRONLY) {
+    size_t *pos_read = file->shmbuf+2*sizeof(size_t);
+    size_t *pos_write = file->shmbuf+3*sizeof(size_t);
+    void *buffer = file->shmbuf+4*sizeof(size_t);
+    size_t size_free = *pos_read>*pos_write?*pos_read-*pos_write:*pos_read+SHMMEM_SIZE-4*sizeof(int)-*pos_write;
+
+    if (size>size_free) size = size_free;
+    if (*pos_read>=*pos_write) memcpy(buffer,data,size);
+    else {
+      size_t part1 = SHMMEM_SIZE-4*sizeof(int)-*pos_write;
+      size_t part2 = *pos_read;
+      memcpy(buffer+*pos_write,data,part1);
+      memcpy(buffer,data+part1,part2);
+    }
+    *pos_write = (*pos_write+size)%(SHMMEM_SIZE-4*sizeof(int));
+
+    size_written = size;
+  }
+  else errno = EBADF;
+  return size_written;
 }
 
 /**
@@ -343,6 +507,12 @@ void _close_all_filehandles() {
     if (S_ISREG(file->mode)) close(file->fh);
     else if (S_ISDIR(file->mode)) closedir(file);
   }
+
+  // close stdin, stdout and stderr
+  _destroy_unnamed_pipe(STDIN_FILENO);
+  _destroy_unnamed_pipe(STDOUT_FILENO);
+  _destroy_unnamed_pipe(STDERR_FILENO);
+
 }
 
 /**
@@ -354,6 +524,7 @@ int close(int fildes) {
   int res;
   char *func;
   struct filelist_item *file = filebyfh(fildes);
+  if (file->fs==NULL) return _close_unnamed_pipe(fildes);
   if (file) {
     asprintf(&func,"fs_close_%x",file->fs->pid);
     res = rpc_call(func,0,file->fs->id,file->fs_fh);
@@ -411,35 +582,38 @@ int dup2(int fildes,int fildes2) {
  *  @param count How many bytes to read
  *  @return How many bytes read
  */
-static ssize_t _read(int fildes,void *buf,size_t count) {
-  int res;
+static ssize_t _read(struct filelist_item *file,void *buf,size_t count) {
+  ssize_t res;
   char *func;
-  struct filelist_item *file = filebyfh(fildes);
-  if (file!=NULL) {
-    asprintf(&func,"fs_read_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh,count);
-    free(func);
-    if (res>0) memcpy(buf,file->shmbuf,res);
-  }
-  else res = -EBADF;
-  errno = res<0?-res:0;
-  return res<0?-1:res;
+  asprintf(&func,"fs_read_%x",file->fs->pid);
+  res = rpc_call(func,0,file->fs->id,file->fs_fh,count);
+  free(func);
+  if (res>0) memcpy(buf,file->shmbuf,res);
+  return res;
 }
 ssize_t read(int fildes,void *buf,size_t count) {
-  ssize_t count_rem = count;
-  size_t off = 0;
+  struct filelist_item *file = filebyfh(fildes);
+  if (file->fs==NULL) return _read_unnamed_pipe(fildes,buf,count);
+  else if (file!=NULL) {
+    ssize_t count_rem = count;
+    size_t off = 0;
 
-  while (count_rem>0) {
-    size_t count_cur = count_rem;
-    if (count_cur>SHMMEM_SIZE) count_cur = SHMMEM_SIZE;
-    count_cur = _read(fildes,buf+off,count_cur);
-    if (count_cur==-1) return -1;
-    count_rem -= count_cur;
-    if (count_cur==0) break;
-    off += count_cur;
+    while (count_rem>0) {
+      size_t count_cur = count_rem;
+      if (count_cur>SHMMEM_SIZE) count_cur = SHMMEM_SIZE;
+      count_cur = _read(file,buf+off,count_cur);
+      if (count_cur==-1) return -1;
+      count_rem -= count_cur;
+      if (count_cur==0) break;
+      off += count_cur;
+    }
+
+    return count-count_rem;
   }
-
-  return count-count_rem;
+  else {
+    errno = EBADF;
+    return -1;
+  }
 }
 
 /**
@@ -449,33 +623,36 @@ ssize_t read(int fildes,void *buf,size_t count) {
  *  @param count How many bytes to write
  *  @return How many bytes written
  */
-static ssize_t _write(int fildes,const void *buf,size_t count) {
-  int res;
+static ssize_t _write(struct filelist_item *file,const void *buf,size_t count) {
   char *func;
-  struct filelist_item *file = filebyfh(fildes);
-  if (file) {
-    memcpy(file->shmbuf,buf,count);
-    asprintf(&func,"fs_write_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh,count);
-    free(func);
-  }
-  else res = -EBADF;
-  errno = res<0?-res:0;
-  return res<0?-1:res;
+  ssize_t res;
+  memcpy(file->shmbuf,buf,count);
+  asprintf(&func,"fs_write_%x",file->fs->pid);
+  res = rpc_call(func,0,file->fs->id,file->fs_fh,count);
+  free(func);
+  return res;
 }
 ssize_t write(int fildes,const void *buf,size_t count) {
-  ssize_t count_rem = count;
-  size_t off = 0;
-  while (count_rem>0) {
-    size_t count_cur = count_rem;
-    if (count_cur>SHMMEM_SIZE) count_cur = SHMMEM_SIZE;
-    count_cur = _write(fildes,buf+off,count_cur);
-    if (count_cur==-1) return -1;
-    count_rem -= count_cur;
-    if (count_cur==0) break;
-    off += count_cur;
+  struct filelist_item *file = filebyfh(fildes);
+  if (file->fs==NULL) return _write_unnamed_pipe(fildes,buf,count);
+  else if (file) {
+    ssize_t count_rem = count;
+    size_t off = 0;
+    while (count_rem>0) {
+      size_t count_cur = count_rem;
+      if (count_cur>SHMMEM_SIZE) count_cur = SHMMEM_SIZE;
+      count_cur = _write(file,buf+off,count_cur);
+      if (count_cur==-1) return -1;
+      count_rem -= count_cur;
+      if (count_cur==0) break;
+      off += count_cur;
+    }
+    return count-count_rem;
   }
-  return count-count_rem;
+  else {
+    errno = EBADF;
+    return -1;
+  }
 }
 
 /**
