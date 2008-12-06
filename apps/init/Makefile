@@ -13,4 +13,4 @@ debug:
 	$(APPS_OBJDUMP) -d -S init2 > init2.objdump
 
 clean:
-	rm init
+	rm -f init init2
