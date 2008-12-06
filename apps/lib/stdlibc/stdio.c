@@ -263,18 +263,24 @@ size_t _fwrite(const void *ptr,size_t size,FILE *stream) {
  */
 char *fgets(char *s,int n,FILE *stream) {
   int i,chr;
-  for (i=0;i<n-1;i++) {
-    chr = fgetc(stream);
-    if (chr==EOF) break;
-    else s[i] = chr;
-    if (errno>0) {
-      stream->error = errno;
-      return NULL;
+  if (check_stream(stream)) {
+    for (i=0;i<n-1;i++) {
+      chr = fgetc(stream);
+      if (chr==EOF) break;
+      else s[i] = chr;
+      if (errno>0) {
+        stream->error = errno;
+        return NULL;
+      }
+      if (s[i]==0 || s[i]=='\n') break;
     }
-    if (s[i]==0 || s[i]=='\n') break;
+    s[i] = 0;
+    return s;
   }
-  s[i] = 0;
-  return s;
+  else {
+    errno = EBADF;
+    return NULL;
+  }
 }
 
 /**
