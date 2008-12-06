@@ -29,19 +29,17 @@ int _stdlib_init_pre();  ///< @see apps/lib/stdlibc/stdlib.c
 int _stdlib_init_post(); ///< @see apps/lib/stdlibc/stdlib.c
 int _libmeinos_init();   ///< @see apps/lib/libmeinos/misc.c
 
-
-#include <stdio.h>
-
 static void get_cmdline(struct process_data *data,char ***_argv,int *_argc) {
-  char **argv = NULL;
-  int argc;
+  int argc = data->argc;
+  char **argv = malloc((argc+1)*sizeof(char*));
   size_t i = 0;
+  size_t j;
 
-  for (argc=0;data->cmdline[i]!=0;argc++) {
-    argv = realloc(argv,(argc+1)*sizeof(char*));
-    argv[argc] = data->cmdline+i;
+  for (j=0;j<argc;j++) {
+    argv[j] = data->cmdline+i;
     i += strlen(data->cmdline+i)+1;
   }
+  argv[j] = NULL;
 
   *_argv = argv;
   *_argc = argc;

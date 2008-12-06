@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 #include <syscall.h>
+#include <rpc.h>
 #include <signal.h>
 
 // memory functions
@@ -39,6 +40,7 @@ struct process_data {
   int shmid_stdin;
   int shmid_stdout;
   int shmid_stderr;
+  int argc;
   char cmdline[0];
   //char enviroment[0];
 } *_process_data;
@@ -46,8 +48,18 @@ struct process_data {
 pid_t execute(const char *path,char *argv[],int *stdin,int *stdout,int *stderr);
 
 // Initialization
-static inline void init_ready() {
+/**
+ * Sends init, that initialization has finished
+ */
+static __inline__ void init_ready() {
   kill(1,SIGUSR1);
+}
+
+/**
+ * Shuts down computer
+ */
+static __inline__ void computer_shutdown() {
+  rpc_call("computer_shutdown",0);
 }
 
 #endif

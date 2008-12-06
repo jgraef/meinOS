@@ -95,7 +95,6 @@ int sscanf(const char *str,const char *format,...);
 int vsscanf(const char *buffer,const char *format,va_list ap);
 
 
-
 static __inline__ int remove(const char *path) {
   return unlink(path);
 }
@@ -211,6 +210,7 @@ static __inline__ int putchar(int c) {
 static __inline__ int fgetc(FILE *stream) {
   char c = EOF;
   _fread(&c,1,stream);
+  if (c==EOF) stream->eof = 1;
   return c;
 }
 

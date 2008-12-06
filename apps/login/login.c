@@ -82,7 +82,6 @@ int main(int argc,char *argv[]) {
 #else
   shell_run(DEFAULT_SHELL);
 #endif
-  printf("TODO %s:%d: Run shutdown\n",__FILE__,__LINE__);
-  while (1);
+  computer_shutdown();
   return 0;
 }

@@ -19,7 +19,7 @@ module /bin/pci
 module /bin/psdev
 module /bin/ramdisk
 module /bin/console
-module /bin/login
+module /bin/init2
 boot
 
 title Memory Test

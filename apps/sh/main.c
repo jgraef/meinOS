@@ -21,6 +21,10 @@
 
 int main(int argc,char *argv[]) {
   printf("shell: hello\n");
-  sleep(1);
+
+  while (1) {
+    
+  }
+
   return 0;
 }

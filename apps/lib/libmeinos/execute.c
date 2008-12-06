@@ -33,6 +33,7 @@ int _create_unnamed_pipe(int read,int *_shmid);
  *  @param stderr Reference for filehandle for stderr of new process
  *  @return PID of new process
  */
+#include <stdio.h>
 pid_t execute(const char *path,char *argv[],int *_stdin,int *_stdout,int *_stderr) {
   size_t shmsize = sizeof(struct process_data)+1;
   int shmid;
@@ -40,7 +41,7 @@ pid_t execute(const char *path,char *argv[],int *_stdin,int *_stdout,int *_stder
   size_t i;
 
   if (argv!=NULL) {
-    for (i=0;argv[i];i++) shmsize += strlen(argv[i])+1;
+    for (i=0;argv[i];i++) shmsize += strlen(argv[i]);
   }
   shmid = shmget(IPC_PRIVATE,shmsize,0);
 
@@ -56,13 +57,13 @@ pid_t execute(const char *path,char *argv[],int *_stdin,int *_stdout,int *_stder
 
       size_t j = 0;
       if (argv!=NULL) {
-
         for (i=0;argv[i];i++) {
           strcpy(data->cmdline+j,argv[i]);
           j += strlen(data->cmdline+j)+1;
         }
+        data->argc = i;
       }
-      data->cmdline[j] = 0;
+      else data->argc = 0;
 
       shmdt(data);
 

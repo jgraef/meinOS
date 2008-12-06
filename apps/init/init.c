@@ -158,6 +158,12 @@ static pid_t proc_execute(const char *file,int var) {
   return pid;
 }
 
+static void init_computer_shutdown() {
+  pid_t child;
+  while ((child = getchild(0))!=-1) kill(child,SIGKILL);
+  exit(0);
+}
+
 int main(int argc,char *argv[]) {
   size_t i;
 
@@ -193,8 +199,9 @@ int main(int argc,char *argv[]) {
   rpc_func(proc_fork,"i",sizeof(int));
   rpc_func(proc_exec,"$i",PATH_MAX+sizeof(int));
   rpc_func(proc_execute,"$i",PATH_MAX+sizeof(int));
+  rpc_func_create("computer_shutdown",init_computer_shutdown,"",0);
 
-  init_run(LOGIN_PROGRAM);
+  init_run(INIT2_PROGRAM);
 
   rpc_mainloop(-1);
 

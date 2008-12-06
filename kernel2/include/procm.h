@@ -136,6 +136,7 @@ int proc_wake(proc_t *proc);
 void proc_shedule();
 pid_t proc_getpid();
 pid_t proc_getparent(pid_t pid);
+pid_t proc_getchild(pid_t pid,size_t i);
 uid_t proc_getuid(int idmask);
 void proc_setuid(int idmask,uid_t uid);
 gid_t proc_getgid(int idmask);

@@ -111,11 +111,13 @@ int main(multiboot_info_t *mbi,uint32_t magic) {
   void *addr;
   char *file;
   char *name;
+  proc_t *proc_init;
 
   for (i=0;(addr = multiboot_get_mod(i,&file,&size));i++) {
     name = basename(file);
     kprintf("    %s:\t%s:\t0x%x / 0x%x...",name,file,addr,size);
-    proc_t *new = proc_create(name,PERM_ROOTUID,PERM_ROOTGID,NULL,(i==0),(i==0));
+    proc_t *new = proc_create(name,PERM_ROOTUID,PERM_ROOTGID,i==0?NULL:proc_init,(i==0),(i==0));
+    if (i==0) proc_init = new;
     if (new!=NULL) {
       void *entrypoint = elf_load(new->addrspace,addr,size);
       if (entrypoint!=NULL) {

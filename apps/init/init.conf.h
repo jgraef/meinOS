@@ -33,7 +33,7 @@
 #endif
 
 // Drivers to initialize
-const char *init_programs[] = {
+static const char *init_programs[] = {
   "vfs",
   "devfs",
   "dma",
@@ -48,6 +48,6 @@ const char *init_programs[] = {
   NULL
 };
 #define INIT_PROGRAM(n) init_programs[n]
-#define LOGIN_PROGRAM   "login"
+#define INIT2_PROGRAM   "init2"
 
 #endif

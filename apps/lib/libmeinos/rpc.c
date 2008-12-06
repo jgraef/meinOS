@@ -48,7 +48,7 @@ int rpc_vcall(const char *name,int ret_params,va_list args) {
   if (id>=0) {
     // pack parameters
     params = pack_malloc(paramsz);
-    int *param_list = malloc(strlen(synopsis));
+    int *param_list = malloc(strlen(synopsis)*sizeof(int));
     for (i=0;synopsis[i];i++) {
       param_list[i] = va_arg(args,int);
       if (synopsis[i]=='b') pack8(params,param_list[i]);
@@ -84,10 +84,9 @@ int rpc_vcall(const char *name,int ret_params,va_list args) {
         }
       }
       errno = 0;
-/// @todo FIXME!
-/*printf("FOO: 0x%x\n",param_list);
+
+
       free(param_list);
-printf("BAR\n");*/
       pack_free(params);
       return ret;
     }
@@ -105,6 +104,32 @@ int rpc_call(const char *name,int ret_params,...) {
   return ret;
 }
 
+int rpc_vcallself(const char *name,void *func,int ret_params,va_list args) {
+  char synopsis[RPC_SYNOPSIS_MAXLEN];
+  int id = syscall_call(SYSCALL_RPC_GETINFO,8,-1,name,getpid(),0,NULL,synopsis,RPC_SYNOPSIS_MAXLEN,1);
+  if (id>=0) {
+    int ret;
+    size_t num_params = strlen(synopsis);
+    size_t i;
+    int *param_list = malloc(num_params*sizeof(int));
+    for (i=0;i<num_params;i++) param_list[i] = va_arg(args,int);
+
+    ret = dyn_call(func,param_list,num_params);
+
+    free(param_list);
+    return ret;
+  }
+  else return -1;
+}
+
+int rpc_callself(const char *name,void *func,int ret_params,...) {
+  va_list args;
+  va_start(args,ret_params);
+  int ret = rpc_vcallself(name,func,ret_params,args);
+  va_end(args);
+  return ret;
+}
+
 int rpc_poll(int id) {
   size_t paramsz,num_params;
   char synopsis[RPC_SYNOPSIS_MAXLEN];
@@ -117,9 +142,9 @@ int rpc_poll(int id) {
     num_params = strlen(synopsis);
     params = pack_malloc(paramsz);
     if (syscall_call(SYSCALL_RPC_POLL,4,id,&func,pack_data(params),&rpc_curpid)==0) {
-      int *param_list = malloc(num_params);
-      size_t i = 0;
-      while (synopsis[i]) {
+      int *param_list = malloc(num_params*sizeof(int));
+      size_t i;
+      for (i=0;i<num_params;i++) {
         if (synopsis[i]=='b') unpack8(params,param_list+i);
         else if (synopsis[i]=='w') unpack16(params,param_list+i);
         else if (synopsis[i]=='d') unpack32(params,param_list+i);
@@ -128,10 +153,11 @@ int rpc_poll(int id) {
         else if (synopsis[i]=='i') unpacki(params,param_list+i);
         else if (synopsis[i]=='l') unpackl(params,param_list+i);
         else if (synopsis[i]=='$') unpackstr(params,(char**)param_list+i);
-        i++;
       }
 
       ret = dyn_call(func,param_list,num_params);
+
+      free(param_list);
 
       if (syscall_call(SYSCALL_RPC_RETURN,3,id,ret,pack_data(params))==0) {
         errno = 0;
@@ -144,7 +170,6 @@ int rpc_poll(int id) {
 }
 
 int rpc_mainloop(int id) {
-  /// @todo I don't know if that is such a good idea
   init_ready();
   while (1) rpc_poll(id);
 }

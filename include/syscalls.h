@@ -77,51 +77,52 @@
 #define SYSCALL_PROC_SETUID         43
 #define SYSCALL_PROC_SETGID         44
 #define SYSCALL_PROC_GETPARENT      45
-#define SYSCALL_PROC_GETNAME        46
-#define SYSCALL_PROC_SETNAME        47 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_GETPIDBYNAME   48
-#define SYSCALL_PROC_GETVAR         49
-#define SYSCALL_PROC_SETVAR         50
-#define SYSCALL_PROC_EXIT           51
-#define SYSCALL_PROC_ABORT          52
-#define SYSCALL_PROC_STOP           53
-#define SYSCALL_PROC_CREATE         54 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_DESTROY        55 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_MEMMAP         56 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_MEMALLOC       57 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_MEMUNMAP       58 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_MEMFREE        59 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_MEMFINDFREE    60 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_MEMGET         61 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_SYSTEM         62 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_JUMP           63 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_CREATESTACK    64 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_WAITPID        65
+#define SYSCALL_PROC_GETCHILD       46
+#define SYSCALL_PROC_GETNAME        47
+#define SYSCALL_PROC_SETNAME        48 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_GETPIDBYNAME   49
+#define SYSCALL_PROC_GETVAR         50
+#define SYSCALL_PROC_SETVAR         51
+#define SYSCALL_PROC_EXIT           52
+#define SYSCALL_PROC_ABORT          53
+#define SYSCALL_PROC_STOP           54
+#define SYSCALL_PROC_CREATE         55 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_DESTROY        56 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_MEMMAP         57 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_MEMALLOC       58 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_MEMUNMAP       59 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_MEMFREE        60 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_MEMFINDFREE    61 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_MEMGET         62 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_SYSTEM         63 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_JUMP           64 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_CREATESTACK    65 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_WAITPID        66
 
 // I/O port
-#define SYSCALL_IO_REG              66 /* ONLY FOR ROOT */
-#define SYSCALL_IO_UNREG            67 /* ONLY FOR ROOT */
+#define SYSCALL_IO_REG              67 /* ONLY FOR ROOT */
+#define SYSCALL_IO_UNREG            68 /* ONLY FOR ROOT */
 
 // Timer
-#define SYSCALL_TIME_HANDLER        68
-#define SYSCALL_TIME_SLEEP          69
-#define SYSCALL_TIME_USLEEP         70
-#define SYSCALL_TIME_GETTICKS       71
+#define SYSCALL_TIME_HANDLER        69
+#define SYSCALL_TIME_SLEEP          70
+#define SYSCALL_TIME_USLEEP         71
+#define SYSCALL_TIME_GETTICKS       72
 
 // IRQ
-#define SYSCALL_IRQ_HANDLER         72 /* ONLY FOR ROOT */
-#define SYSCALL_IRQ_SLEEP           73 /* ONLY FOR ROOT */
+#define SYSCALL_IRQ_HANDLER         73 /* ONLY FOR ROOT */
+#define SYSCALL_IRQ_SLEEP           74 /* ONLY FOR ROOT */
 
 // Signal
-#define SYSCALL_SIG_SETUP           74
-#define SYSCALL_SIG_SEND            75
+#define SYSCALL_SIG_SETUP           75
+#define SYSCALL_SIG_SEND            76
 
 // Misc
-#define SYSCALL_MISC_BIOSINT        76 /* ONLY FOR ROOT */
+#define SYSCALL_MISC_BIOSINT        77 /* ONLY FOR ROOT */
 
 // Debug
 /// @deprecated Only for debugging
-#define SYSCALL_PUTSN               77
-#define SYSCALL_FOURTYTWO           78
+#define SYSCALL_PUTSN               78
+#define SYSCALL_FOURTYTWO           79
 
 #endif

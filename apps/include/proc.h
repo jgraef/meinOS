@@ -22,6 +22,9 @@
 #include <sys/types.h>
 #include <syscall.h>
 #include <signal.h>
+#include <unistd.h>
+
+#define getchild(i) getchildbypid(getpid(),i)
 
 static __inline__ pid_t proc_create(char *name,uid_t uid,gid_t gid,pid_t parent) {
   return syscall_call(SYSCALL_PROC_CREATE,4,name,uid,gid,parent);
@@ -83,24 +86,28 @@ static __inline__ void proc_stop(pid_t pid) {
   kill(pid,SIGSTOP);
 }
 
-static inline pid_t getpidbyname(const char *name) {
+static __inline__ pid_t getpidbyname(const char *name) {
   return syscall_call(SYSCALL_PROC_GETPIDBYNAME,1,name);
 }
 
-static inline uid_t getuidbypid(pid_t pid) {
+static __inline__ uid_t getuidbypid(pid_t pid) {
   return syscall_call(SYSCALL_PROC_GETUID,1,pid);
 }
 
-static inline uid_t getgidbypid(pid_t pid) {
+static __inline__ uid_t getgidbypid(pid_t pid) {
   return syscall_call(SYSCALL_PROC_GETGID,1,pid);
 }
 
-static inline pid_t getppidbypid(pid_t pid) {
+static __inline__ pid_t getppidbypid(pid_t pid) {
   return syscall_call(SYSCALL_PROC_GETPARENT,1,pid);
 }
 
-static inline gid_t getpgidbypid(pid_t pid) {
+static __inline__ gid_t getpgidbypid(pid_t pid) {
   return syscall_call(SYSCALL_PROC_GETGID,1,pid);
+}
+
+static __inline__ pid_t getchildbypid(pid_t pid,size_t i) {
+  return syscall_call(SYSCALL_PROC_GETCHILD,2,pid,i);
 }
 
 char *getname(pid_t pid);

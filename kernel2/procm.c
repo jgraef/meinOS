@@ -47,6 +47,7 @@ int proc_init() {
   if (syscall_create(SYSCALL_PROC_SETUID,proc_setuid,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_SETGID,proc_setgid,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_GETPARENT,proc_getparent,1)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_GETCHILD,proc_getchild,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_GETNAME,proc_getname,3)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_SETNAME,proc_setname,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_GETPIDBYNAME,proc_getpidbyname,1)==-1) return -1;
@@ -309,6 +310,24 @@ pid_t proc_getparent(pid_t pid) {
   proc_t *proc = proc_find(pid);
   if (proc!=NULL) {
     if (proc->parent!=NULL) return proc->parent->pid;
+  }
+  return 0;
+}
+
+/**
+ * Gets PID of a child (Syscall)
+ *  @param pid Process to get child's PID of
+ *  @param i Number of child
+ *  @return Child's PID
+ */
+pid_t proc_getchild(pid_t pid,size_t i) {
+  proc_t *proc = proc_find(pid);
+  if (proc!=NULL) {
+    if (proc->parent!=NULL) {
+      proc_t *child = llist_get(proc->parent->children,i);
+      if (child==NULL) return -1;
+      else return child->pid;
+    }
   }
   return 0;
 }

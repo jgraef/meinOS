@@ -35,6 +35,8 @@ int rpc_func_create(const char *name,void *func,const char *synopsis,size_t para
 int rpc_func_destroy(int id);
 int rpc_vcall(const char *name,int ret_params,va_list args);
 int rpc_call(const char *name,int ret_params,...);
+int rpc_vcallself(const char *name,void *func,int ret_params,va_list args);
+int rpc_callself(const char *name,void *func,int ret_params,...);
 int rpc_poll(int id);
 int rpc_mainloop(int id);
 llist_t rpc_list();
