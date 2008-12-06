@@ -132,7 +132,7 @@ int cdrom_read_capacity(struct cdrom_device *dev) {
 }
 
 void *cdrom_read(struct cdrom_device *dev,size_t first_block,size_t block_count) {
-  fprintf(stderr,"cdrom: %s: first_block=0x%x block_count=0x%x\n",dev->name,first_block,block_count);
+  fprintf(stderr,"cdrom: %s read: first_block=0x%x block_count=0x%x\n",dev->name,first_block,block_count);
   cdrom_cmd_t command;
 
   command.ext.opcode = CDROM_READ;
