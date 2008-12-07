@@ -43,8 +43,7 @@ static const char *init_programs[] = {
   "ramdisk",
   "pci",
   "psdev",
-  //"console",
-  //"cirrus",
+  "console",
   NULL
 };
 #define INIT_PROGRAM(n) init_programs[n]

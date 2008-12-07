@@ -42,9 +42,9 @@ void _stdlib_init_pre() {
 }
 
 void _stdlib_init_post() {
+  env_init();
   _fs_init();
   stdio_init();
-  env_init();
 }
 
 /**

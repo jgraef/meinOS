@@ -28,8 +28,6 @@
 
 #define check_stream(stream) ((stream)!=NULL && (stream)->fh>=0)
 
-static unsigned int tmp_num;
-
 static FILE *create_stream(int fh,int oflag) {
   FILE *stream = malloc(sizeof(FILE));
   stream->fh = fh;
@@ -57,7 +55,6 @@ void stdio_init() {
   stdin = create_stream(STDIN_FILENO,O_RDONLY);
   stdout = create_stream(STDOUT_FILENO,O_WRONLY);
   stderr = create_stream(STDERR_FILENO,O_WRONLY);
-  tmp_num = 0;
   atexit(stdio_exit);
 }
 
@@ -73,7 +70,7 @@ static int oflag_str2num(const char *oflag) {
   else if (oflag[0]=='w') m = O_CREAT|O_WRONLY|O_TRUNC;
   else if (oflag[0]=='a') m = O_CREAT|O_APPEND|O_TRUNC;
   else m = -1;
-  if (oflag[1]=='+') m |= O_RDONLY|O_WRONLY;
+  if (oflag[1]=='+' && m!=-1) m |= O_RDONLY|O_WRONLY;
   return m;
 }
 
@@ -83,6 +80,7 @@ static int oflag_str2num(const char *oflag) {
  *  @return Filename
  */
 char *tmpnam(char *buf1) {
+  static unsigned int tmp_num = 0;
   static char *buf2[L_tmpnam];
   char *buf = buf1!=NULL?buf1:memset(buf2,0,L_tmpnam);
   snprintf(buf,L_tmpnam,"%s/%04x",P_tmpdir,tmp_num++);
@@ -173,10 +171,12 @@ int fileno(FILE *stream) {
  */
 FILE *fopen(const char *name,const char *oflag) {
   int m = oflag_str2num(oflag);
-  int fh = open(name,m,0777);
-  if (fh>=0) {
-    //if ((m&O_TRUNC)==O_TRUNC) ftruncate(fh,0);
-    return create_stream(fh,m);
+  if (m>0) {
+    int fh = open(name,m,0777);
+    if (fh>=0) {
+      //if ((m&O_TRUNC)==O_TRUNC) ftruncate(fh,0);
+      return create_stream(fh,m);
+    }
   }
   return NULL;
 }
@@ -189,15 +189,15 @@ FILE *fopen(const char *name,const char *oflag) {
 int fflush(FILE *stream) {
   if (stream->dobuf) {
     int ret;
-    if (stream==stdout) ret = syscall_call(SYSCALL_PUTSN,3,0,stream->buf,stream->bufcur-stream->buf)==-1?EOF:0;
-    else if (stream==stderr) ret = syscall_call(SYSCALL_PUTSN,3,1,stream->buf,stream->bufcur-stream->buf)==-1?EOF:0;
-    else {
+    /*if (stream->fh==STDOUT_FILENO) ret = syscall_call(SYSCALL_PUTSN,3,0,stream->buf,stream->bufcur-stream->buf)==-1?EOF:0;
+    else if (stream->fh==STDERR_FILENO) ret = syscall_call(SYSCALL_PUTSN,3,1,stream->buf,stream->bufcur-stream->buf)==-1?EOF:0;
+    else {*/
       ret = write(stream->fh,stream->buf,stream->bufcur-stream->buf);
       if (ret>0 && ret<(stream->bufcur-stream->buf)) {
         stream->eof = 1;
         ret = EOF;
       }
-    }
+    //}
     stream->bufcur = stream->buf;
     return ret;
   }
@@ -292,7 +292,8 @@ char *fgets(char *s,int n,FILE *stream) {
  */
 size_t _fread(void *ptr,size_t size,FILE *stream) {
   if (check_stream(stream)) {
-    int ret = read(stream->fh,ptr,size);
+    ssize_t ret;
+    ret = read(stream->fh,ptr,size);
     if (ret>0) {
       if (ret<size) stream->eof = 1;
       return ret;

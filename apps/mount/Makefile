@@ -10,4 +10,4 @@ debug:
 	$(APPS_OBJDUMP) -d -S mount > mount.objdump
 
 clean:
-	rm mount
+	rm -f mount
