@@ -17,37 +17,64 @@
 */
 
 #include <sys/utsname.h>
-#include <limits.h>
+#include <stdlib.h>
 #include <stdio.h>
 
-/// @todo WARNING! Fixed values, change them by hand!
-static char *sysname = "meinOS";
-static char *release = "0.1";
-static char *version = "0.1";
-/// @todo Maybe measure that (CPUID?)
-static char *machine = "i686";
-static char *hostfil = "/etc/hostname";
+/*static char *sysname = NULL;
+static char *release = NULL;
+static char *version = NULL;
+static char *machine = NULL;
+static char *nodename = NULL;
 
-static char *get_nodename() {
-  static char hostname[HOST_NAME_MAX];
-  FILE *fd = fopen(hostfil,"r");
-  if (fd!=NULL) {
-    fgets(hostname,HOST_NAME_MAX,fd);
-    fclose(fd);
-    return hostname;
-  }
-  else return NULL;
+static void deinit() {
+  free(sysname);
+  free(release);
+  free(version);
+  free(machine);
+  free(nodename);
 }
 
-int uname(struct utsname *utsbuf) {
-  char *nodename = get_nodename();
-  if (nodename==NULL) return -1;
+static char *get_value(char *name) {
+  char *path;
+  char buf[1024];
 
-  utsbuf->nodename = nodename;
+  /// TODO: this should be /etc/utsname when symlinks work
+  asprintf(&path,"/boot/etc/utsname/%s",name);
+  FILE *fd = fopen(path,"r");
+  if (fd!=NULL) {
+    fgets(buf,1024,fd);
+    fclose(fd);
+    return strdup(buf);
+  }
+  else return NULL;
+}*/
+
+int uname(struct utsname *utsbuf) {
+  /*static int inited = 0;
+
+  if (!inited) {
+    /// TODO: loading from CD is to slow at the moment
+    sysname = get_value("sysname");
+    release = get_value("release");
+    version = get_value("version");
+    machine = get_value("machine");
+    /// @todo this should be a symlink to /etc/hostname
+    nodename = get_value("nodename");
+    atexit(deinit);
+    inited = 1;
+  }
+
   utsbuf->sysname = sysname;
   utsbuf->release = release;
   utsbuf->version = version;
   utsbuf->machine = machine;
+  utsbuf->nodename = nodename;*/
+
+  utsbuf->sysname = "meinOS";
+  utsbuf->release = "0.1";
+  utsbuf->version = "0.1";
+  utsbuf->machine = "i686";
+  utsbuf->nodename = "asterix";
 
   return 0;
 }
