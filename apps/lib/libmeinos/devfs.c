@@ -22,9 +22,10 @@
 #include <rpc.h>
 #include <stdio.h>
 #include <sys/shm.h>
-#include <devfs.h>
 #include <llist.h>
 #include <errno.h>
+
+#include <devfs.h>
 
 static llist_t devlist;
 
@@ -92,7 +93,7 @@ void devfs_init() {
  *  @return Device
  */
 devfs_dev_t *devfs_createdev(const char *name) {
-  int shmid = shmget(IPC_PRIVATE,PAGE_SIZE,0);
+  int shmid = shmget(IPC_PRIVATE,DEVFS_BUFSIZE,0);
   if (shmid!=-1) {
     int id = rpc_call("devfs_createdev",0,name,shmid);
     if (id>=0) {

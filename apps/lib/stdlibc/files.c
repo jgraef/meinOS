@@ -42,7 +42,7 @@
 #define getnew_fh() (lastfh++)
 #define filebyfh(fh) llist_get(filelist,lidxbyfh(fh))
 
-#define SHMMEM_SIZE PAGE_SIZE
+#define SHMMEM_SIZE (2*PAGE_SIZE)
 
 struct fslist_item {
   pid_t pid;
@@ -351,12 +351,16 @@ static size_t _write_unnamed_pipe(int fh,const void *data,size_t size) {
  *  @param size Size of buffer
  *  @return Current workdir
  */
-char *getcwd(char *buf, size_t size) {
-  if (size==0) {
+char *getcwd(char *buf,size_t size) {
+  if (buf==NULL) {
+    size = workdir.strlen+1;
+    buf = malloc(size);
+  }
+  else if (size==0) {
     errno = EINVAL;
     return NULL;
   }
-  if (workdir.strlen+1>size) {
+  else if (workdir.strlen+1>size) {
     errno = ERANGE;
     return NULL;
   }

@@ -21,6 +21,9 @@
 
 #include <sys/types.h>
 #include <rpc.h>
+#include <limits.h>
+
+#define DEVFS_BUFSIZE (2*PAGE_SIZE)
 
 typedef struct devfs_dev_S devfs_dev_t;
 struct devfs_dev_S {

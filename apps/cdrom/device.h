@@ -29,7 +29,7 @@
 #define CDROM_READ_CAPACITY 0x25
 #define CDROM_READ          0xA8
 
-#define CDROM_BUFSIZE PAGE_SIZE
+#define CDROM_BUFSIZE DEVFS_BUFSIZE
 
 #define CDROM_R 0
 #define CDROM_W 1
