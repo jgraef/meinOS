@@ -71,12 +71,25 @@ static void bell(int freq,int dur) {
 }
 
 /**
+ * Updates hardware cursor
+ */
+static void update_hwcursor() {
+  uint32_t pos = cursor.row*VIDEOTEXT_WIDTH+cursor.col;
+  outb(0x3D4,15);
+  outb(0x3D5,pos);
+  outb(0x3D4,14);
+  outb(0x3D5,pos>>8);
+}
+
+/**
  * Clears screen
  */
 static void clearscreen() {
-  memset(videomem,0,VIDEOTEXT_SIZE);
+  size_t i;
+  for (i=0;i<VIDEOTEXT_WIDTH*VIDEOTEXT_HEIGHT;i++) videomem[i] = VIDEOTEXT_STDCOLOR<<8;
   cursor.col = VIDEOTEXT_STDCOL;
   cursor.row = VIDEOTEXT_STDROW;
+  update_hwcursor();
 }
 
 /**
@@ -189,6 +202,9 @@ static int printchar(char chr) {
     memset(videomem+VIDEOTEXT_WIDTH*(VIDEOTEXT_HEIGHT-1),0,VIDEOTEXT_WIDTH*2);
     cursor.row--;
   }
+
+  update_hwcursor();
+
   return 1;
 }
 
