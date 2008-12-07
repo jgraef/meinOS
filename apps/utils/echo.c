@@ -23,7 +23,7 @@
 #include <stddef.h>
 
 void usage(char *prog,int ret) {
-  FILE *stream = stdout;//ret==0?stdout:stderr;
+  FILE *stream = ret==0?stdout:stderr;
   fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
   fprintf(stream,"Echo the STRING(s) to standard output\n");
   fprintf(stream,"\t-n\tdo not output the trailing newline\n");
@@ -33,6 +33,11 @@ void usage(char *prog,int ret) {
   fprintf(stream,"\t-v\toutput version information and exit\n");
 }
 
+/**
+ * Converts a string with an octal number to an integer
+ *  @param string String holding octal number
+ *  @return String as integer
+ */
 int octal2num(char *str) {
   char buf[4];
   memcpy(buf,str,3);
@@ -63,6 +68,7 @@ char *escape_string(char *str,int *newline) {
     }
     else new[j] = str[i];
   }
+  new[j] = 0;
   return new;
 }
 
