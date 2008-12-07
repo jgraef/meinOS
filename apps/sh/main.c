@@ -17,6 +17,7 @@
 */
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,6 +25,7 @@
 #include <stdio.h>
 #include <sys/utsname.h>
 #include <pwd.h>
+#include <dirent.h>
 #include <errno.h>
 #include <misc.h>
 
@@ -169,10 +171,51 @@ static int shell_builtin_cd(char **argv) {
   return 0;
 }
 
+static char ls_filetype(mode_t mode) {
+  if (S_ISBLK(mode)) return 'b';
+  else if (S_ISCHR(mode)) return 'c';
+  else if (S_ISDIR(mode)) return 'd';
+  else if (S_ISFIFO(mode)) return 'f';
+  else if (S_ISLNK(mode)) return 'l';
+  else if (S_ISSOCK(mode)) return 's';
+  else return '-';
+}
+
+static char *ls_perm(mode_t mode) {
+  static char buf[10];
+  snprintf(buf,10,"%c%c%c%c%c%c%c%c%c",mode&S_IRUSR?'r':'-',mode&S_IWUSR?'w':'-',mode&S_IXUSR?'x':'-',mode&S_IRGRP?'r':'-',mode&S_IWGRP?'w':'-',mode&S_IXGRP?'x':'-',mode&S_IROTH?'r':'-',mode&S_IWOTH?'w':'-',mode&S_IXOTH?'x':'-');
+  return buf;
+}
+
+static int shell_builtin_ls(char **argv) {
+  char *path = argv[1]==NULL?".":argv[1];
+  DIR *dir = opendir(path);
+  if (dir!=NULL) {
+    struct dirent *dirent;
+    do {
+      dirent = readdir(dir);
+      if (dirent!=NULL) {
+        if (strcmp(dirent->d_name,".")!=0 && strcmp(dirent->d_name,"..")!=0) {
+          struct stat stbuf;
+          struct passwd *owner;
+          char *file;
+          asprintf(&file,"%s/%s",path,dirent->d_name);
+          stat(file,&stbuf);
+          owner = getpwuid(stbuf.st_uid);
+          printf("%c%s %s % 5d %s\n",ls_filetype(stbuf.st_mode),ls_perm(stbuf.st_mode),owner!=NULL?owner->pw_name:"root",stbuf.st_size,dirent->d_name);
+        }
+      }
+    } while (dirent!=NULL);
+    return 0;
+  }
+  else return 1;
+}
+
 static int shell_builtin_help(char **argv) {
   printf("Built-in commands:\n"
          " exit              Exit shell\n"
          " cd DIR            Change working directory to DIR\n"
+         " ls [DIR]          List content of DIR\n"
          " help              Show this help dialog\n"
          " version           Show version\n");
   return 0;
@@ -187,6 +230,7 @@ static int shell_run_builtin(char **argv) {
   shell_builtin_cmd_t shell_builtin_cmds[] = {
     { .cmd = "exit",    .func = shell_builtin_exit },
     { .cmd = "cd",      .func = shell_builtin_cd },
+    { .cmd = "ls",      .func = shell_builtin_ls },
     { .cmd = "help",    .func = shell_builtin_help },
     { .cmd = "version", .func = shell_builtin_version }
   };
@@ -251,8 +295,10 @@ static void shell_interactive() {
     if (cmd==NULL) break;
     argv = shell_parse_cmd(cmd);
 
-    if ((status = shell_run_builtin(argv))==-1) {
-      if (shell_run_binary(argv,0)==-1) fprintf(stderr,"sh: %s: command not found\n",argv[0]);
+    if (argv[0]!=NULL) {
+      if ((status = shell_run_builtin(argv))==-1) {
+        if (shell_run_binary(argv,0)==-1) fprintf(stderr,"sh: %s: command not found\n",argv[0]);
+      }
     }
 
     free(cmd);
