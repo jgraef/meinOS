@@ -135,6 +135,7 @@ static struct fslist_item *mp_match(char *file,int parent) {
  *  @return FSID
  */
 static struct fslist_item *fsbypath(char *path,int parent) {
+  if (path==NULL || path[0]==0) return NULL;
   struct fslist_item *fs = mp_match(path,parent);
   if (fs==NULL) {
     fs = malloc(sizeof(struct fslist_item));
@@ -376,9 +377,9 @@ int chdir(const char *new) {
   new = getabsolutepath((char*)new);
   if (new==NULL) new = "/";
 
-  /*DIR *dir = opendir(new);
+  DIR *dir = opendir(new);
   if (dir!=NULL) {
-    closedir(dir);*/
+    closedir(dir);
     free(workdir.str);
     path_destroy(workdir.path);
     workdir.path = path_parse(new);
@@ -387,8 +388,8 @@ int chdir(const char *new) {
     workdir.strlen = strlen(workdir.str);
     setenv("PATH",workdir.str,1);
     return 0;
-  //}
-  //else return -1;
+  }
+  else return -1;
 }
 
 /**
