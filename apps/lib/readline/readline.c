@@ -63,16 +63,8 @@ char* rl_line_buffer;
 static char keyboard_read_char(void)
 {
     char c = 0;
-    
-    while (!fread(&c, 1, 1, stdin)) {
-        // FIXME Das gehoert eigentlich rein, geht aber nicht, weil vterm ein EOF
-        // liefert, wenn der Eingabepuffer gerade leer ist.
-        /*
-        if (feof(stdin)) {
-            return 0;
-        }
-        */
-    }
+
+    while ((c = fgetc(stdin))<1);
 
     return c;
 }
@@ -276,7 +268,7 @@ char* readline(const char* prompt)
                 c = keyboard_read_char();
                 enter = 1;
 
-                printf("\r\n");
+                printf("\n");
                 fflush(stdout);
                 break;
 
@@ -395,18 +387,19 @@ seq_nomatch:
                     pos--;
                     size--;
                     delchar(buffer, pos);
-                    printf("\033[1D\033[K\033[s%s\033[u", &buffer[pos]);
+                    //printf("\033[1D\033[K\033[s%s\033[u", &buffer[pos]);
+                    printf("\b \b%s",&buffer[pos]);
                     fflush(stdout);
                 }
                 break;
 
             case '\n':
-                enter = 1;  
-                
-                printf("\r\n");
+                enter = 1;
+
+                printf("\n");
                 fflush(stdout);
                 break;
-            
+
 
             case '\t':
                 if (rl_attempted_completion_function != NULL) {
@@ -430,7 +423,9 @@ seq_nomatch:
             default:
                 if (pos < BUFFER_SIZE - 1) {
                     inschar(buffer, pos, c);
-                    printf("\033[K\033[s%s\033[u\033[1C", &buffer[pos]);
+                    /// @todo revert when escape sequences work
+                    //printf("\033[K\033[s%s\033[u\033[1C", &buffer[pos]);
+                    printf("%s",&buffer[pos]);
                     pos++;
                     size++;
                     fflush(stdout);

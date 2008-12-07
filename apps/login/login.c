@@ -25,8 +25,8 @@
 
 /// @todo this should be "/bin/sh" (when symlinks work)
 #define DEFAULT_SHELL "/boot/bin/sh"
+#define DEFAULT_WDIR  "/"
 
-#ifdef LOGIN
 FILE *console;
 
 int init_input() {
@@ -34,6 +34,7 @@ int init_input() {
   return console!=NULL?0:-1;
 }
 
+#ifdef LOGIN
 char *input(int hide) {
   static char buf[LOGIN_NAME_MAX];
   int i = 0;
@@ -43,7 +44,7 @@ char *input(int hide) {
   return buf;
 }
 
-char *login() {
+char *login(char *wdir) {
   char *user;
   //char *pass;
   struct passwd *passwd;
@@ -66,22 +67,29 @@ char *login() {
   setreuid(passwd->pw_uid);
   setregid(passwd->pw_gid);
   chdir(passwd->pw_dir);
+  *wdir = passwd->pw_dir;
   return passwd->pw_shell;
 }
 #endif
 
-void shell_run(char *shell) {
-  pid_t pid = execute(shell,NULL,NULL,NULL,NULL);
+void shell_run(char *shell,char *wdir) {
+  char *argv[] = {wdir,NULL};
+  pid_t pid = execute(shell,argv,NULL,NULL,NULL);
   waitpid(pid,NULL,0);
 }
 
 int main(int argc,char *argv[]) {
-#ifdef LOGIN
   if (init_input()==-1) abort();
-  while (1) shell_run(login());
+#ifdef LOGIN
+  while (1) {
+    char *wdir;
+    char *shell = login(&wdir);
+    shell_run(shell,wdir,user);
+  }
 #else
-  shell_run(DEFAULT_SHELL);
+  shell_run(DEFAULT_SHELL,DEFAULT_WDIR);
 #endif
+while (1);
   computer_shutdown();
   return 0;
 }
