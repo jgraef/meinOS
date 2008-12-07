@@ -23,6 +23,7 @@
 #include <misc.h>
 #include <unistd.h>
 #include <ioport.h>
+#include <ctype.h>
 
 #include "console.h"
 
@@ -32,8 +33,6 @@
 #define VIDEOTEXT_STDCOLOR 0x07    // Default color: black background, lightgray foreground
 #define VIDEOTEXT_STDCOL   0       // Default col
 #define VIDEOTEXT_STDROW   0       // Default row
-#define BELL_STDFREQ       440     // Tone A1 (440Hz)
-#define BELL_STDDUR        100     // 100 msec
 
 #define SCREEN_DEFAULT_FONT "standard"
 
@@ -42,20 +41,26 @@
 // see http://files.osdev.org/mirrors/geezer/osd/graphics/modes.c
 // for changing fonts
 
-struct {
+static struct {
   int col;
   int row;
-  int color;
-} cursor;
+} cursor,saved_cursor;
 
-uint16_t *videomem;
+static struct {
+  int linewrap;
+  int bell_freq;
+  int bell_dur;
+  int color;
+} settings;
+
+static uint16_t *videomem;
 
 /**
  * Rings the bell
  *  @param freq Frequency
  *  @param dur Duration time
  */
-void bell(int freq,int dur) {
+static void bell(int freq,int dur) {
   freq = 1193180/freq;
   outb(0x43,0xB6);
   outb(0x42,(uint8_t)freq);
@@ -66,42 +71,112 @@ void bell(int freq,int dur) {
 }
 
 /**
- * Sets cursor by offset
- *  @param off Offset
- */
-void cursor_setbyoffset(int off) {
-  cursor.col = off%VIDEOTEXT_WIDTH;
-  cursor.row = off/VIDEOTEXT_WIDTH;
-}
-
-/**
  * Clears screen
  */
-void clearscreen() {
+static void clearscreen() {
   memset(videomem,0,VIDEOTEXT_SIZE);
   cursor.col = VIDEOTEXT_STDCOL;
   cursor.row = VIDEOTEXT_STDROW;
-  cursor.color = VIDEOTEXT_STDCOLOR;
+}
+
+/**
+ * Sets default settings
+ */
+static void default_settings() {
+  settings.linewrap = 1;
+  settings.bell_freq = 440;
+  settings.bell_dur = 100;
+  settings.color = VIDEOTEXT_STDCOLOR;
 }
 
 /**
  * Prints a character on screen
  *  @param chr Character
  */
-int printchar(char chr) {
-  int pos;
-  if (chr=='\a') bell(BELL_STDFREQ,BELL_STDDUR);
-  if (chr=='\b') cursor.col = (cursor.col-1>0)?(cursor.col-1):0;
-  if (chr=='\t') cursor.col = cursor.col+5;
-  if (chr=='\n') {
+static int printchar(char chr) {
+  size_t pos = cursor_offset();
+  static int escape = 0;
+  static char escape_buf[32];
+
+  if (escape) {
+    escape_buf[(escape++)-1] = chr; // put byte in escape buffer
+
+    if (isalpha(chr)) { // escape code finished
+      escape = 0;
+      if (escape==1 && escape_buf[0]=='c') default_settings();           // reset device
+      else if (escape==3 && memcmp(escape_buf,"[7h",3)==0) settings.linewrap = 1; // enable linewrap
+      else if (escape==3 && memcmp(escape_buf,"[7l",3)==0) settings.linewrap = 0; // disable linewrap
+      else if (escape_buf[0]=='[' && (escape_buf[escape-2]=='H' || escape_buf[escape-2]=='f')) { // set cursor position
+        int row = -1;
+        int col = -1;
+        if (escape>3) sscanf(escape_buf,escape_buf[escape-2]=='H'?"[%d;%dH":"[%d;%df",&row,&col);
+        if (row!=-1 && col!=-1) {
+          cursor.col = col;
+          cursor.row = row;
+        }
+        else {
+          cursor.col = 0;
+          cursor.row = 0;
+        }
+      }
+      else if (escape_buf[0]=='[' && escape_buf[escape-2]=='A') {
+        int up = 1;
+        if (escape>3) sscanf(escape_buf,"[%dA",&up);
+        if (cursor.row>0) cursor.row -= up;
+      }
+      else if (escape_buf[0]=='[' && escape_buf[escape-2]=='B') {
+        int down = 1;
+        if (escape>3) sscanf(escape_buf,"[%dB",&down);
+        if (cursor.row<VIDEOTEXT_HEIGHT) cursor.row += down;
+      }
+      else if (escape_buf[0]=='[' && escape_buf[escape-2]=='C') {
+        int left = 1;
+        if (escape>3) sscanf(escape_buf,"[%dC",&left);
+        if (cursor.col>0) cursor.col -= left;
+      }
+      else if (escape_buf[0]=='[' && escape_buf[escape-2]=='D') {
+        int right = 1;
+        if (escape>3) sscanf(escape_buf,"[%dD",&right);
+        if (cursor.col<VIDEOTEXT_WIDTH) cursor.col += right;
+      }
+      else if (escape_buf[0]=='[' && (escape_buf[1]=='s' || escape_buf[1]=='7')) {
+        memcpy(&saved_cursor,&cursor,sizeof(cursor));
+      }
+      else if (escape_buf[0]=='[' && (escape_buf[1]=='u' || escape_buf[1]=='8')) {
+        memcpy(&cursor,&saved_cursor,sizeof(cursor));
+      }
+      else if (memcmp(escape_buf,"[K",2)==0) {
+        memset(videomem+pos,0,(VIDEOTEXT_WIDTH-cursor.col+1)*2);
+      }
+      else if (memcmp(escape_buf,"[1K",3)==0) {
+        memset(videomem+VIDEOTEXT_WIDTH*cursor.col,0,cursor.row*2);
+      }
+      else if (memcmp(escape_buf,"[2K",3)==0) {
+        memset(videomem+VIDEOTEXT_WIDTH*cursor.col,0,VIDEOTEXT_WIDTH);
+      }
+      else if (memcmp(escape_buf,"[J",2)==0) {
+        memset(videomem+VIDEOTEXT_WIDTH*cursor.col,0,(VIDEOTEXT_HEIGHT-cursor.row)*VIDEOTEXT_WIDTH*2);
+      }
+      else if (memcmp(escape_buf,"[1J",3)==0) {
+        memset(videomem,0,cursor.row*VIDEOTEXT_WIDTH*2);
+      }
+      else if (memcmp(escape_buf,"[2J",3)==0) {
+        clearscreen();
+      }
+    }
+  }
+  else if (chr=='\a') bell(settings.bell_freq,settings.bell_dur);
+  else if (chr=='\b') cursor.col = (cursor.col-1>0)?(cursor.col-1):0;
+  else if (chr=='\t') cursor.col = cursor.col+5;
+  else if (chr=='\n') {
     cursor.row++;
     cursor.col = VIDEOTEXT_STDCOL;
   }
-  if (chr=='\f') clearscreen();
-  if (chr=='\r') cursor.col = VIDEOTEXT_STDCOL;
-  if (chr>=' ') {
-    pos = cursor_offset();
-    *(videomem+pos) = (((uint16_t)cursor.color)<<8)|chr;
+  else if (chr=='\f') clearscreen();
+  else if (chr=='\r') cursor.col = VIDEOTEXT_STDCOL;
+  else if (chr==0x1B) escape = 1;
+  else if (chr>=' ') {
+    *(videomem+pos) = (((uint16_t)settings.color)<<8)|chr;
     cursor.col++;
   }
 
@@ -138,6 +213,8 @@ ssize_t onwrite(devfs_dev_t *dev,void *buffer,size_t count,off_t offset) {
 int init_screen() {
   videomem = mem_getvga();
   if (videomem==NULL) return -1;
+  memset(&saved_cursor,0,sizeof(saved_cursor));
+  default_settings();
   clearscreen();
   return 0;
 }
