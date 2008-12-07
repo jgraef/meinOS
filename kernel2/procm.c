@@ -458,6 +458,16 @@ void proc_setvar(pid_t pid,int var) {
  *  @param options Options
  */
 pid_t proc_waitpid(pid_t pid,int *stat_loc,int options) {
+  if (pid>0) {
+    proc_t *proc = proc_find(pid);
+    if (proc!=NULL) {
+      if (proc->defunc) {
+        *stat_loc = proc->ret;
+        return pid;
+      }
+    }
+    else return -1;
+  }
   proc_current->wait_pid = pid;
   proc_current->wait_stat = stat_loc;
   proc_current->wait = 1;
