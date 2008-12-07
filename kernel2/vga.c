@@ -84,6 +84,9 @@ void vga_text_printchar(char chr) {
     vga_text_cursor.x++;
   }
 
+  com_send(chr);
+  bochs_send(chr);
+
   if (vga_text_cursor.x>=VGA_TEXT_WIDTH) {
     vga_text_cursor.x = 0;
     vga_text_cursor.y++;
@@ -115,4 +118,9 @@ int is_transmit_empty() {
 void com_send(char a) {
   while (!is_transmit_empty());
   outb(COM_PORT,a);
+}
+
+#define BOCHS_PORT 0xE9
+void bochs_send(char a) {
+  outb(BOCHS_PORT,a);
 }

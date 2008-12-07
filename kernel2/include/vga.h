@@ -69,5 +69,6 @@ void vga_text_printchar(char chr);
 /// @todo remove
 void com_init();
 void com_send(char a);
+void bochs_send(char a);
 
 #endif

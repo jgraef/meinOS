@@ -10,8 +10,12 @@ all:
 	make -C kernel2/
 	make -C apps/
 
+stacktrace: stacktrace.c
+	$(CC) -o $@ $^
+
 clean:
 	make -C keyboard_layouts/ clean
 	make -C kernel2/ clean
 	make -C lib/ clean
 	make -C apps clean
+	rm -f stacktrace

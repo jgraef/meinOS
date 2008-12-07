@@ -30,6 +30,7 @@
 #include <signal.h>
 #include <memmap.h>
 #include <procm.h>
+#include <elf.h>
 
 /**
  * Initializes Interrupts
@@ -153,6 +154,11 @@ void interrupt_exception_handler(unsigned int exception,uint32_t errcode) {
     kprintf("%s error in %s at index 0x%x\n",(errcode&1)?"External":"Internal",(errcode&2)?"IDT":((errcode&4)?"LDT":"GDT"),(errcode&0xFFF8)>>3);
   }
 
+  if (*interrupt_curregs.esp>=0x4000000 && *interrupt_curregs.esp<0x40001000) {
+    int *i;
+    kprintf("Stack:\n");
+    for (i=(int*)*interrupt_curregs.esp;i<(int*)0x40001000;i++) kprintf("0x%x:\t0x%x\n",i,*i);
+  }
   cpu_halt();
 
   if (exception==INTERRUPT_EXCEPTION_PAGE_FAULT) kill(proc_current,SIGSEGV);

@@ -16,4 +16,4 @@ debug:
 	$(KERNEL_OBJDUMP) -d -S kernel2 > kernel2.objdump
 
 clean:
-	rm *.o kernel2
+	rm -f *.o kernel2
