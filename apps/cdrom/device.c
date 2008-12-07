@@ -27,6 +27,18 @@
 
 #include "device.h"
 
+//#define DEBUG
+
+static void debug(const char *fmt,...) {
+#ifdef DEBUG
+  va_list args;
+  va_start(args,fmt);
+  fprintf(stderr,"cdrom: ");
+  vfprintf(stderr,fmt,args);
+  va_end(args);
+#endif
+}
+
 static int cdrom_shmid;
 static void *cdrom_shmbuf;
 struct {
@@ -66,7 +78,7 @@ struct cdrom_request_sense_data *cdrom_request_sense(struct cdrom_device *dev) {
   command.dfl.opcode = CDROM_REQUEST_SENSE;
   command.raw8[4] = sizeof(struct cdrom_request_sense_data);
   if (cdrom_command(dev,&command,CDROM_R,sizeof(struct cdrom_inquiry_data))!=-1) {
-    fprintf(stderr,"cdrom: %s request sense...\n",dev->name);
+    debug("%s request sense...\n",dev->name);
     return cdrom_shmbuf;
   }
   else return NULL;
@@ -79,7 +91,7 @@ int cdrom_inquiry(struct cdrom_device *dev) {
   command.dfl.opcode = CDROM_INQUIRY;
   command.raw8[4] = sizeof(struct cdrom_inquiry_data);
   if (cdrom_command(dev,&command,CDROM_R,sizeof(struct cdrom_inquiry_data))!=-1) {
-    fprintf(stderr,"cdrom: %s inquiry...\n",dev->name);
+    debug("%s inquiry...\n",dev->name);
     if (inq->type==5 && inq->rmb==1 && inq->atapi_version>=2 && inq->response_type==1) {
       dev->vendor_id = bes(inq->vendor_id);
       dev->product_id = bes(inq->product_id);
@@ -96,7 +108,7 @@ int cdrom_start(struct cdrom_device *dev,int start,int load) {
   command.raw8[1] = 0;
   command.raw8[4] = (start?1:0)|(load?2:0);
   if (cdrom_command(dev,&command,0,0)!=-1) {
-    fprintf(stderr,"cdrom: %s start: start=%d; load=%d\n",dev->name,start,load);
+    debug("%s start: start=%d; load=%d\n",dev->name,start,load);
     dev->started = start;
     dev->loaded = load;
     return 0;
@@ -110,7 +122,7 @@ int cdrom_lock(struct cdrom_device *dev,int lock) {
   command.dfl.opcode = CDROM_LOCK;
   command.raw8[4] = lock?1:0;
   if (cdrom_command(dev,&command,0,0)!=-1) {
-    fprintf(stderr,"cdrom: %s lock: lock=%d\n",dev->name,lock);
+    debug("%s lock: lock=%d\n",dev->name,lock);
     dev->locked = lock;
     return 0;
   }
@@ -125,14 +137,14 @@ int cdrom_read_capacity(struct cdrom_device *dev) {
   if (cdrom_command(dev,&command,CDROM_R,sizeof(struct cdrom_read_capacity_data))!=-1) {
     dev->block_count = bei(cap->lba);
     dev->block_size = bei(cap->block_size);
-    fprintf(stderr,"cdrom: %s read_capacity: lba=0x%x; block_size=0x%x; size=%dkB\n",dev->name,dev->block_count,dev->block_size,(dev->block_count*dev->block_size)/1024);
+    debug("%s read_capacity: lba=0x%x; block_size=0x%x; size=%dkB\n",dev->name,dev->block_count,dev->block_size,(dev->block_count*dev->block_size)/1024);
     return 0;
   }
   else return -1;
 }
 
 void *cdrom_read(struct cdrom_device *dev,size_t first_block,size_t block_count) {
-  fprintf(stderr,"cdrom: %s read: first_block=0x%x block_count=0x%x\n",dev->name,first_block,block_count);
+  debug("%s read: first_block=0x%x block_count=0x%x\n",dev->name,first_block,block_count);
   cdrom_cmd_t command;
 
   command.ext.opcode = CDROM_READ;
