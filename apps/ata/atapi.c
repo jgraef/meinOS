@@ -97,7 +97,6 @@ void atapi_remove_device(struct cdi_device* device)
 
 int atapi_request(struct cdi_scsi_device* scsi,struct cdi_scsi_packet* packet)
 {
-    fprintf(stderr,"ata: atapi_request: %s\n",scsi->dev.name);
     struct ata_device *dev = (struct ata_device*)scsi;
     struct ata_request request = {
         .dev = dev,

@@ -494,5 +494,7 @@ static inline void ata_drv_select(struct ata_device* dev)
     ATA_DELAY();
 }
 
+//#define DEBUG stderr
+void debug(const char *fmt,...);
 
 #endif
