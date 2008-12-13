@@ -86,10 +86,6 @@ int iso9660_fs_res_load(struct cdi_fs_stream *stream) {
   struct iso9660_fs_res *res = (struct iso9660_fs_res*)stream->res;
 
   if (!res->res.loaded) {
-    // Create cache
-    //size_t i;
-    //for (i=0;i<res->data_size;i+=res->voldesc->sector_size) cdi_cache_entry_new(res->cache,res->data_offset+i,res->voldesc->sector_size);
-
     if (res->class==CDI_FS_CLASS_DIR) res->res.children = iso9660_dir_load(res);
     else res->res.children = cdi_list_create();
     res->res.loaded = 1;
@@ -126,7 +122,7 @@ int64_t iso9660_fs_res_meta_read(struct cdi_fs_stream *stream,cdi_fs_meta_t meta
   struct iso9660_fs_res *res = (struct iso9660_fs_res*)stream->res;
   switch (meta) {
     case CDI_FS_META_SIZE:
-      return res->data_size;
+      return res->res.dir!=NULL?0:res->data_size;
 
     case CDI_FS_META_USEDBLOCKS:
       return (res->data_size-1)/res->voldesc->sector_size+1;
