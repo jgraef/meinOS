@@ -55,7 +55,7 @@ size_t iso9660_read(struct iso9660_fs_res *res,size_t pos,size_t size,void *buff
 
   while (rem_size>0) {
     //debug("Block: 0x%x\n",res->data_sector+block++);
-    struct cdi_cache_block *cache_block = cdi_cache_block_get(res->cache,res->data_sector+block++);
+    struct cdi_cache_block *cache_block = cdi_cache_block_get(res->cache,res->data_sector+block++,0);
     size_t cur_size = rem_size>res->voldesc->sector_size?res->voldesc->sector_size:rem_size;
     memcpy(buffer,cache_block->data+offset,cur_size);
     cdi_cache_block_release(res->cache,cache_block);
