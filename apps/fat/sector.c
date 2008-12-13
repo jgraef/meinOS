@@ -74,7 +74,7 @@ size_t fat_read(struct cdi_fs_filesystem *fs,uint64_t pos,size_t size,void *buff
   size_t rem_size = size;
 
   while (rem_size>0) {
-    struct cdi_cache_block *cache_block = cdi_cache_block_get(fat_fs->cache,block++);
+    struct cdi_cache_block *cache_block = cdi_cache_block_get(fat_fs->cache,block++,0);
     size_t cur_size = rem_size>fat_fs->bootsector->sector_size?fat_fs->bootsector->sector_size:rem_size;
     memcpy(buffer,cache_block->data+offset,cur_size);
     cdi_cache_block_release(fat_fs->cache,cache_block);
@@ -102,7 +102,7 @@ size_t fat_write(struct cdi_fs_filesystem *fs,uint64_t pos,size_t size,const voi
   size_t rem_size = size;
 
   while (rem_size>0) {
-    struct cdi_cache_block *cache_block = cdi_cache_block_get(fat_fs->cache,block++);
+    struct cdi_cache_block *cache_block = cdi_cache_block_get(fat_fs->cache,block++,0);
     size_t cur_size = rem_size>fat_fs->bootsector->sector_size?fat_fs->bootsector->sector_size:rem_size;
     memcpy(cache_block->data+offset,buffer,cur_size);
     cdi_cache_block_release(fat_fs->cache,cache_block);
