@@ -142,8 +142,7 @@ int ramdisk_fs_res_assign_class(struct cdi_fs_stream* stream,
             break;
 
         case CDI_FS_CLASS_SPECIAL:
-            stream->error = CDI_FS_ERROR_NOT_IMPLEMENTED;
-            return 0;
+            res->res.special = &ramdisk_fs_special;
             break;
 
     };

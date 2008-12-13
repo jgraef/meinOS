@@ -69,3 +69,7 @@ struct cdi_fs_res_link  ramdisk_fs_link = {
     .write_link = ramdisk_fs_link_write
 };
 
+struct cdi_fs_res_special ramdisk_fs_special = {
+    .dev_read = NULL,
+    .dev_write = NULL
+};

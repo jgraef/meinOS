@@ -96,10 +96,11 @@ int         ramdisk_fs_link_write(struct cdi_fs_stream* stream, const char* path
 
 
 // ramdisk-Ressourcen(-Typen)
-extern struct cdi_fs_res_res    ramdisk_fs_res;
-extern struct cdi_fs_res_file   ramdisk_fs_file;
-extern struct cdi_fs_res_dir    ramdisk_fs_dir;
-extern struct cdi_fs_res_link   ramdisk_fs_link;
+extern struct cdi_fs_res_res     ramdisk_fs_res;
+extern struct cdi_fs_res_file    ramdisk_fs_file;
+extern struct cdi_fs_res_dir     ramdisk_fs_dir;
+extern struct cdi_fs_res_link    ramdisk_fs_link;
+extern struct cdi_fs_res_special ramdisk_fs_special;
 
 #endif
 
