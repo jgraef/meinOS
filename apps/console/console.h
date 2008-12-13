@@ -24,6 +24,8 @@
 #include <wchar.h>
 #include <devfs.h>
 
+void debug(const char *fmt,...);
+
 // keyboard.c
 int init_keyboard();
 ssize_t onread(devfs_dev_t *dev,void *buffer,size_t count,off_t offset);

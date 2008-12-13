@@ -67,12 +67,12 @@ static int keyboard_layout_load(const char *filename) {
     read(fh,&(keyboard.layout.height),4);
     keyboard.layout.table = calloc(keyboard.layout.width*keyboard.layout.height,sizeof(wchar_t));
     read(fh,keyboard.layout.table,keyboard.layout.width*keyboard.layout.height*sizeof(wchar_t));
-    fprintf(stderr,"console: keyboard: Layout loaded: %s (width=%d; height=%d; shift=%s; altcap=%s)\n",filename,keyboard.layout.width,keyboard.layout.height,keyboard.layout.has_shift?"yes":"no",keyboard.layout.has_altcap?"yes":"no");
+    debug("keyboard: Layout loaded: %s (width=%d; height=%d; shift=%s; altcap=%s)\n",filename,keyboard.layout.width,keyboard.layout.height,keyboard.layout.has_shift?"yes":"no",keyboard.layout.has_altcap?"yes":"no");
     close(fh);
     return 0;
   }
   else {
-    fprintf(stderr,"console: keyboard: %s: %s\n",strerror(errno),filename);
+    debug("keyboard: %s: %s\n",strerror(errno),filename);
     return -1;
   }
 }
@@ -147,9 +147,9 @@ static void keyboard_irq(void *null) {
     // write key into buffer
     else if (!released) {
       wchar_t chr = scancode2wchr(scancode);
-      if (chr>0x7F) fprintf(stderr,"TODO: Wide characters (%s %d)\n",__FILE__,__LINE__);
+      if (chr>0x7F) debug("TODO: Wide characters (%s %d)\n",__FILE__,__LINE__);
       else if (chr!=0) {
-        //fprintf(stderr,"keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
+        //debug("keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
         keyboard.buffer.buffer[keyboard.buffer.wpos++] = chr;
       }
     }
@@ -169,5 +169,8 @@ int init_keyboard() {
   keyboard.buffer.size = KEYBUF_SIZE;
   keyboard.buffer.buffer = malloc(keyboard.buffer.size);
   keyboard_layout_load(KEYBOARD_DEFAULT_LAYOUT);
+
+  // to get scancodes that are already in kbc buffer
+  //keyboard_irq(NULL);
   return 0;
 }
