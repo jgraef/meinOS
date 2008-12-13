@@ -58,7 +58,7 @@ static int cdi_pci_read_config(struct cdi_pci_device *pci) {
   asprintf(&filename,"dev/pci%d.%d.%d",pci->bus,pci->dev,pci->function);
   int fh = open(filename,O_RDWR);
   free(filename);
-  
+
   if (fh!=-1) {
     struct pci_config conf;
     read(fh,&conf,sizeof(conf));
@@ -94,7 +94,7 @@ static int cdi_pci_read_config(struct cdi_pci_device *pci) {
     close(fh);
   }
   else ret = -1;
-  
+
   return ret;
 }
 

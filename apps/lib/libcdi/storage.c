@@ -56,7 +56,7 @@ static int cdi_storage_swapbuffer(struct cdi_storage_device* device,uint64_t new
  *  @return How many bytes read
  */
 static int cdi_storage_read(devfs_dev_t *dev,void *buffer,size_t count,off_t pos) {
-  fprintf(stderr,"cdi_storage_read(0x%x,0x%x,0x%x,0x%x)\n",dev,buffer,count,pos);
+  cdi_debug("storage: read(0x%x,0x%x,0x%x,0x%x)\n",dev,buffer,count,pos);
   struct cdi_storage_device* device = dev->user_data;
   size_t i;
 

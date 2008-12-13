@@ -182,7 +182,7 @@ void cdi_cache_destroy(struct cdi_cache* cache)
     int i;
 
     if (!cdi_cache_sync(cache)) {
-        puts("cdi_cache: Sync fehlgeschlagen vor dem Zerstoeren!");
+        cdi_debug("cache: Sync fehlgeschlagen vor dem Zerstoeren!");
     }
 
     // Einzelne Blocks freigeben
@@ -193,13 +193,13 @@ void cdi_cache_destroy(struct cdi_cache* cache)
         if (b->cdi.number != INVBLKNUM) {
 
             if (b->ref_count) {
-                printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
+                cdi_debug("cache: Beim Zerstoeren des Caches wurde ein Block "
                     "gefunden, der einen Referenzzaehler != 0 hat (%lld)\n",
                     (unsigned long long) b->cdi.number);
             }
 
             if (b->dirty) {
-                printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
+                cdi_debug("cache: Beim Zerstoeren des Caches wurde ein Block "
                     "gefunden, der als veraendert markiert ist (%lld)\n",
                     (unsigned long long) b->cdi.number);
             }
@@ -446,9 +446,8 @@ static size_t find_replaceable(struct cache* cache, uint64_t blocknum)
 
         // Solte nicht passieren
         if (b->cdi.number == INVBLKNUM) {
-            puts("cdi_cache: Hier ist ein Element mit ungueltiger Blocknummer "
-                "mitten im Array!");
-            printf("%u\n", (unsigned int) i);
+            cdi_debug("cache: Hier ist ein Element mit ungueltiger Blocknummer "
+                "mitten im Array: %u",(unsigned int) i);
             continue;
         }
 
@@ -501,7 +500,7 @@ static size_t block_allocate(struct cache* cache, uint64_t blocknum,
 
     // Position suchen an der der neue Block spaeter im Array liegen soll
     if (search_position(cache, blocknum, &dest)) {
-        puts("cdi_cache: Warnung: Block, der bereits im Cache ist, soll"
+        cdi_debug("cache: Warnung: Block, der bereits im Cache ist, soll"
            " alloziert werden.");
         *index = dest;
         return 1;
@@ -579,7 +578,7 @@ static struct block* block_load(struct cache* cache, uint64_t block, int read)
     size_t block_size = cache->cache.block_size;
 
     if (!block_allocate(cache, block, &index)) {
-        puts("cdi_cache Panic: Kein Unbenutztes Element gefunden");
+        cdi_debug("cache Panic: Kein Unbenutztes Element gefunden");
         return NULL;
     }
 
@@ -600,7 +599,7 @@ static struct block* block_load(struct cache* cache, uint64_t block, int read)
                 cache->read_buffer, cache->prv_data);
 
             if (cache->read_buffer_cnt == 0) {
-                puts("cdi_cache Panic: Einlesen der Daten fehlgeschlagen");
+                cdi_debug("cache Panic: Einlesen der Daten fehlgeschlagen");
                 return NULL;
             }
             //puts("nomatch");

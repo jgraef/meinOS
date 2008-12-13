@@ -32,18 +32,39 @@
 #include <unistd.h>
 #include <path.h>
 
+#define cdi_list_find(list,element) llist_find((llist_t)(list),(element))
+
 #define CDI_FS_STREAM(filesystem,resource) { .fs = (filesystem), .res = (resource), .error = 0 }
+
+#define CDI_FS_FIFOBUF_SIZE 4096
+
+/// @todo use!
+#define fs_is_reg(res)   (res->file!=NULL)
+#define fs_is_dir(res)   (res->dir!=NULL)
+#define fs_is_link(res)  (res->link!=NULL)
+#define fs_is_block(res) (res->special!=NULL && res->type==CDI_FS_BLOCK)
+#define fs_is_char(res)  (res->special!=NULL && res->type==CDI_FS_CHAR)
+#define fs_is_fifo(res)  (res->special!=NULL && res->type==CDI_FS_FIFO)
+#define fs_is_sock(res)  (res->special!=NULL && res->type==CDI_FS_SOCK)
 
 struct cdi_fs_file {
   struct cdi_fs_res *res;
   int fh;
   enum {
-    FILE_REG,
+    FILE_REG, // is also for devices
     FILE_DIR,
+    FILE_FIFO,
+    FILE_LINK
   } type;
   uint64_t pos;
   void *shmbuf;
   cdi_list_t dirlist;
+  struct {
+    void *buffer;
+    size_t posr;
+    size_t posw;
+    cdi_list_t list;
+  } fifo;
 };
 
 /**
@@ -55,7 +76,7 @@ struct cdi_fs_file {
  *  @return Success?
  */
 static int cdi_fs_mount(struct cdi_fs_driver *driver,const char *fs_name,const char *mountpoint,const char *dev,int readonly) {
-  fprintf(stderr,"cdi_fs_mount(0x%x,%s,%s,%s,%d)\n",driver,fs_name,mountpoint,dev,readonly);
+  cdi_debug("fs_mount(0x%x,%s,%s,%s,%d)\n",driver,fs_name,mountpoint,dev,readonly);
   int fsid = rpc_call("vfs_regfs",0,fs_name,mountpoint);
   if (fsid!=-1) {
     struct cdi_fs_filesystem *filesystem = malloc(sizeof(struct cdi_fs_filesystem));
@@ -88,7 +109,7 @@ static int cdi_fs_mount(struct cdi_fs_driver *driver,const char *fs_name,const c
 }
 
 static int cdi_fs_mount_rpc(char *fs_name,const char *mountpoint,const char *dev,int readonly) {
-  fprintf(stderr,"cdi_fs_mount_rpc(%s,%s,%s,%d)\n",fs_name,mountpoint,dev,readonly);
+  cdi_debug("fs_mount_rpc(%s,%s,%s,%d)\n",fs_name,mountpoint,dev,readonly);
   size_t i;
   struct cdi_fs_driver *driver;
   if (!*dev) dev = NULL;
@@ -99,13 +120,13 @@ static int cdi_fs_mount_rpc(char *fs_name,const char *mountpoint,const char *dev
 }
 
 static int cdi_fs_unmount(struct cdi_fs_filesystem *filesystem) {
-  fprintf(stderr,"cdi_fs_unmount(0x%x)\n",filesystem);
+  cdi_debug("fs_unmount(0x%x)\n",filesystem);
   rpc_call("vfs_unregfs",0,filesystem->fsid);
   return filesystem->driver->fs_destroy(filesystem)?0:-1;
 }
 
 static int cdi_fs_unmount_rpc(char *fs_name,char *mountpoint) {
-  fprintf(stderr,"cdi_fs_unmount_rpc(%s)\n",fs_name);
+  cdi_debug("fs_unmount_rpc(%s)\n",fs_name);
   size_t i,j;
   struct cdi_fs_driver *driver;
   struct cdi_fs_filesystem *filesystem;
@@ -134,7 +155,7 @@ static int _cdi_fs_func(char *name,void *func,char *synopsis,size_t bufsize,pid_
  *  @return Filesystem
  */
 static struct cdi_fs_filesystem *cdi_fs_find(int fsid) {
-  fprintf(stderr,"cdi_fs_find(%d)\n",fsid);
+  cdi_debug("fs_find(%d)\n",fsid);
   size_t i;
   struct cdi_fs_filesystem *filesystem;
   for (i=0;(filesystem = cdi_list_get(cdi_filesystems,i));i++) {
@@ -144,7 +165,7 @@ static struct cdi_fs_filesystem *cdi_fs_find(int fsid) {
 }
 
 static struct cdi_fs_file *cdi_fs_file_find(struct cdi_fs_filesystem *filesystem,int fh) {
-  fprintf(stderr,"cdi_fs_file_find(0x%x,%d)\n",filesystem,fh);
+  cdi_debug("fs_file_find(0x%x,%d)\n",filesystem,fh);
   size_t i;
   struct cdi_fs_file *file;
   for (i=0;(file = cdi_list_get(filesystem->files,i));i++) {
@@ -176,7 +197,7 @@ static int cdi_fs_error2errno(cdi_fs_error_t error) {
  *  @param stream Stream
  */
 static inline int cdi_fs_loadres(struct cdi_fs_stream *stream) {
-  fprintf(stderr,"cdi_fs_loadres(0x%x)\n",stream);
+  cdi_debug("fs_loadres(0x%x)\n",stream);
   return stream->res->loaded?0:(stream->res->res->load(stream)?0:-1);
 }
 
@@ -186,7 +207,7 @@ static inline int cdi_fs_loadres(struct cdi_fs_stream *stream) {
  *  @param stream Stream
  */
 static inline int cdi_fs_unloadres(struct cdi_fs_stream *stream) {
-  fprintf(stderr,"cdi_fs_unloadres(0x%x)\n",stream);
+  cdi_debug("fs_unloadres(0x%x)\n",stream);
   /// @todo Zum Verringern von IO, aber wieder normal machen!
   return stream->res->loaded?(stream->res->res->load(stream)?0:-1):0;
 }
@@ -199,7 +220,7 @@ static inline int cdi_fs_unloadres(struct cdi_fs_stream *stream) {
  *  @return Resource or NULL
  */
 static struct cdi_fs_res *cdi_fs_parentres(struct cdi_fs_filesystem *filesystem,char *path_str,char **filename) {
-  fprintf(stderr,"cdi_fs_parentres(0x%x,%s)\n",filesystem,path_str);
+  cdi_debug("fs_parentres(0x%x,%s)\n",filesystem,path_str);
   struct cdi_fs_res *res = filesystem->root_res;
   struct cdi_fs_res *child = res;
   size_t k;
@@ -235,7 +256,7 @@ static struct cdi_fs_res *cdi_fs_parentres(struct cdi_fs_filesystem *filesystem,
  *  @return Resource or NULL
  */
 static struct cdi_fs_res *cdi_fs_path2res(struct cdi_fs_filesystem *filesystem,char *path_str) {
-  fprintf(stderr,"cdi_fs_path2res(0x%x,%s)\n",filesystem,path_str);
+  cdi_debug("fs_path2res(0x%x,%s)\n",filesystem,path_str);
   struct cdi_fs_res *res = filesystem->root_res;
   struct cdi_fs_res *child = res;
   size_t i,k;
@@ -258,6 +279,12 @@ static struct cdi_fs_res *cdi_fs_path2res(struct cdi_fs_filesystem *filesystem,c
   return child;
 }
 
+/**
+ * Converts POSIX mode to class (and special file type)
+ *  @param mode POSIX mode
+ *  @param special Reference for special file type
+ *  @return Resource class
+ */
 static cdi_fs_res_class_t cdi_fs_mode2class(mode_t mode,cdi_fs_res_type_t *special) {
   if (S_ISREG(mode)) return CDI_FS_CLASS_FILE;
   if (S_ISDIR(mode)) return CDI_FS_CLASS_DIR;
@@ -281,6 +308,11 @@ static cdi_fs_res_class_t cdi_fs_mode2class(mode_t mode,cdi_fs_res_type_t *speci
   return CDI_FS_CLASS_FILE;
 }
 
+/**
+ * Converts resource class (and special file type) to POSIX mode
+ *  @param res Resource
+ *  @return POSIX mode
+ */
 static mode_t cdi_fs_class2mode(struct cdi_fs_res *res) {
   mode_t mode = 0;
   if (res->file!=NULL) mode |= S_IFREG;
@@ -295,6 +327,12 @@ static mode_t cdi_fs_class2mode(struct cdi_fs_res *res) {
   return mode;
 }
 
+/**
+ * Gets filesize from a resource
+ *  @param filesystem CDI Filesystem
+ *  @param res Resource
+ *  @return Filesize
+ */
 static size_t cdi_fs_filesize(struct cdi_fs_filesystem *filesystem,struct cdi_fs_res *res) {
   if (res->res->meta_read!=NULL) {
     struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,res);
@@ -303,25 +341,148 @@ static size_t cdi_fs_filesize(struct cdi_fs_filesystem *filesystem,struct cdi_fs
   else return 0;
 }
 
+// FIFO functions ///////
+
+/**
+ * Opens a FIFO
+ *  @param fs CDI FS
+ *  @param fifo FIFO
+ */
+static void fs_fifo_open(struct cdi_fs_filesystem *fs,struct cdi_fs_file *fifo) {
+  size_t i;
+
+  fifo->fifo.buffer = malloc(CDI_FS_FIFOBUF_SIZE);
+  fifo->fifo.posr = 0;
+  fifo->fifo.posw = 0;
+  fifo->type = FILE_FIFO;
+  fifo->fifo.list = NULL;
+
+  // find other filehandles of this FIFO
+  struct cdi_fs_file *file;
+  for (i=0;(file = cdi_list_get(fs->files,i));i++) {
+    if (file->res==fifo->res) {
+      fifo->fifo.list = file->fifo.list; // same FIFO, get FIFO list
+      break;
+    }
+  }
+
+  if (fifo->fifo.list==NULL) fifo->fifo.list = cdi_list_create(); // first opener of FIFO, create FIFO list
+
+  // add yourself to list
+  cdi_list_push(fifo->fifo.list,fifo);
+}
+
+/**
+ * Closes a FIFO
+ *  @param fs CDI FS
+ *  @param fifo FIFO
+ */
+static void fs_fifo_close(struct cdi_fs_filesystem *fs,struct cdi_fs_file *fifo) {
+  free(fifo->fifo.buffer);
+
+  if (llist_size(fifo->fifo.list)==1) cdi_list_destroy(fifo->fifo.list); // I am the one and only, destroy list
+  else cdi_list_remove(fifo->fifo.list,cdi_list_find(fifo->fifo.list,fifo)); // Else just remove yourself from list
+}
+
+/**
+ * Reads from a FIFO
+ *  @param fs CDI FS
+ *  @param fifo FIFO
+ *  @param size How many bytes to read
+ *  @return How many bytes read
+ */
+static ssize_t fs_fifo_read(struct cdi_fs_filesystem *fs,struct cdi_fs_file *fifo,size_t size) {
+  if (size==0) return 0;
+
+  // calculate free space in buffer
+  size_t size_free = fifo->fifo.posw>=fifo->fifo.posr?fifo->fifo.posw-fifo->fifo.posr:fifo->fifo.posw+CDI_FS_FIFOBUF_SIZE-fifo->fifo.posr;
+
+  // check if buffer is big enough
+  if (size>size_free) size = size_free;
+  if (size==0) return 0;
+
+  // if isn't be wrapped around at end just copy
+  if (fifo->fifo.posr<(fifo->fifo.posr+size)%CDI_FS_FIFOBUF_SIZE) memcpy(fifo->shmbuf,fifo->fifo.buffer+fifo->fifo.posr,size);
+  // else you have to do 2 copies
+  else {
+    size_t part1 = CDI_FS_FIFOBUF_SIZE-fifo->fifo.posr;
+    size_t part2 = fifo->fifo.posw;
+    memcpy(fifo->shmbuf,fifo->fifo.buffer+fifo->fifo.posr,part1);
+    memcpy(fifo->shmbuf+part1,fifo->fifo.buffer,part2);
+  }
+  fifo->fifo.posr = (fifo->fifo.posr+size)%CDI_FS_FIFOBUF_SIZE;
+
+  return size;
+}
+
+/**
+ * Writes in a FIFO
+ *  @param fs CDI FS
+ *  @param fifo FIFO
+ *  @param size How many bytes to write
+ *  @return How many bytes written
+ */
+static ssize_t fs_fifo_write(struct cdi_fs_filesystem *fs,struct cdi_fs_file *fifo,size_t size) {
+  struct cdi_fs_file *dstfifo;
+
+  if (size==0 || cdi_list_size(fifo->fifo.list)==1) return 0;
+
+  // calculate minimum free space in buffers
+  size_t i;
+  size_t size_free = ~0;
+  for (i=0;(dstfifo = cdi_list_get(fifo->fifo.list,i));i++) {
+    if (dstfifo!=fifo) {
+      size_t free = fifo->fifo.posr>fifo->fifo.posw?fifo->fifo.posr-fifo->fifo.posw:fifo->fifo.posr+CDI_FS_FIFOBUF_SIZE-fifo->fifo.posw;
+      if (free<size_free) size_free = free;
+    }
+  }
+
+  // check if buffer is big enough
+  if (size>size_free) size = size_free;
+  if (size==0) return 0;
+
+  for (i=0;(dstfifo = cdi_list_get(fifo->fifo.list,i));i++) {
+    if (dstfifo!=fifo) {
+      // if isn't wrapped around at end just copy
+      if (dstfifo->fifo.posw<(dstfifo->fifo.posr+size)%CDI_FS_FIFOBUF_SIZE) memcpy(dstfifo->fifo.buffer+dstfifo->fifo.posw,fifo->shmbuf,size);
+      // else you have to do 2 copies
+      else {
+        size_t part1 = CDI_FS_FIFOBUF_SIZE-dstfifo->fifo.posw;
+        size_t part2 = dstfifo->fifo.posr;
+        memcpy(dstfifo->fifo.buffer+dstfifo->fifo.posw,fifo->shmbuf,part1);
+        memcpy(dstfifo->fifo.buffer,fifo->shmbuf+part1,part2);
+      }
+      dstfifo->fifo.posw = (dstfifo->fifo.posw+size)%CDI_FS_FIFOBUF_SIZE;
+    }
+  }
+
+  return size;
+}
+
 // Wrapper functions ////
 
+/// @todo add other filetypes?
 static int fs_open(int fsid,int oflag,int shmid) {
-  fprintf(stderr,"fs_open(%d,%d,%d)\n",fsid,oflag,shmid);
+  cdi_debug("fs_open(%d,%d,%d)\n",fsid,oflag,shmid);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     void *shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
       struct cdi_fs_res *res = cdi_fs_path2res(filesystem,shmbuf);
       if (res!=NULL) {
-        if (res->file!=NULL) {
+        if (fs_is_reg(res) || fs_is_char(res) || fs_is_block(res) || fs_is_fifo(res) || fs_is_link(res)) {
           struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,res);
           if (cdi_fs_loadres(&stream)==0) {
             struct cdi_fs_file *file = malloc(sizeof(struct cdi_fs_file));
             file->res = res;
             file->fh = filesystem->last_fh++;
-            file->type = FILE_REG;
-            file->pos = (oflag&O_APPEND)?cdi_fs_filesize(filesystem,res):0;
             file->shmbuf = shmbuf;
+            if (fs_is_reg(res) || fs_is_char(res) || fs_is_block(res)) {
+              file->type = FILE_REG;
+              file->pos = (oflag&O_APPEND)?cdi_fs_filesize(filesystem,res):0;
+            }
+            else if (fs_is_link(res)) file->type = FILE_LINK;
+            else if (fs_is_fifo(res)) fs_fifo_open(filesystem,file);
             cdi_list_push(filesystem->files,file);
             return file->fh;
           }
@@ -346,16 +507,17 @@ static int fs_open(int fsid,int oflag,int shmid) {
 }
 
 static int fs_close(int fsid,int fh) {
-  fprintf(stderr,"fs_close(%d,%d)\n",fsid,fh);
+  cdi_debug("fs_close(%d,%d)\n",fsid,fh);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
     if (file!=NULL) {
-      if (file->type==FILE_REG) {
+      if (file->type==FILE_REG || file->type==FILE_FIFO) {
         struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,file->res);
         if (file->res->res->unload(&stream)) {
+          if (file->type==FILE_FIFO) fs_fifo_close(filesystem,file);
           shmdt(file->shmbuf);
-          cdi_list_remove(filesystem->files,llist_find((llist_t)filesystem->files,file));
+          cdi_list_remove(filesystem->files,cdi_list_find(filesystem->files,file));
           free(file);
           return 0;
         }
@@ -369,12 +531,12 @@ static int fs_close(int fsid,int fh) {
 }
 
 static ssize_t fs_read(int fsid,int fh,size_t count) {
-  fprintf(stderr,"fs_read(%d,%d,%d)\n",fsid,fh,count);
+  cdi_debug("fs_read(%d,%d,%d)\n",fsid,fh,count);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
     if (file!=NULL) {
-      if (file->res->file!=NULL && file->type==FILE_REG) {
+      if (file->type==FILE_REG) {
         if (file->res->file->read!=NULL) {
           struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,file->res);
           ssize_t ret = file->res->file->read(&stream,file->pos,count,file->shmbuf);
@@ -383,6 +545,7 @@ static ssize_t fs_read(int fsid,int fh,size_t count) {
         }
         else return -ENOSYS;
       }
+      else if (file->type==FILE_FIFO) return fs_fifo_read(filesystem,file,count);
       else return -EBADF;
     }
     else return -EBADF;
@@ -391,12 +554,13 @@ static ssize_t fs_read(int fsid,int fh,size_t count) {
 }
 
 static ssize_t fs_write(int fsid,int fh,size_t count) {
-  fprintf(stderr,"fs_write(%d,%d,%d)\n",fsid,fh,count);
+  cdi_debug("fs_write(%d,%d,%d)\n",fsid,fh,count);
+
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
     if (file!=NULL) {
-      if (file->res->file!=NULL && file->type==FILE_REG) {
+      if (file->type==FILE_REG) {
         if (file->res->file->write!=NULL) {
           struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,file->res);
           ssize_t ret = file->res->file->write(&stream,file->pos,count,file->shmbuf);
@@ -405,6 +569,7 @@ static ssize_t fs_write(int fsid,int fh,size_t count) {
         }
         else return -ENOSYS;
       }
+      else if (file->type==FILE_FIFO) return fs_fifo_write(filesystem,file,count);
       else return -EBADF;
     }
     else return -EBADF;
@@ -413,7 +578,7 @@ static ssize_t fs_write(int fsid,int fh,size_t count) {
 }
 
 static off_t fs_seek(int fsid,int fh,off_t off,int whence) {
-  fprintf(stderr,"fs_seek(%d,%d,%d,%d)\n",fsid,fh,off,whence);
+  cdi_debug("fs_seek(%d,%d,%d,%d)\n",fsid,fh,off,whence);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
@@ -433,7 +598,7 @@ static off_t fs_seek(int fsid,int fh,off_t off,int whence) {
 }
 
 static int fs_fstat(int fsid,int fh) {
-  fprintf(stderr,"fs_fstat(%d,%d)\n",fsid,fh);
+  cdi_debug("fs_fstat(%d,%d)\n",fsid,fh);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
@@ -441,14 +606,15 @@ static int fs_fstat(int fsid,int fh) {
       struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,file->res);
       struct stat *stbuf = file->shmbuf;
       memset(stbuf,0,sizeof(struct stat));
-      if (file->res->special!=NULL) file->res->special->dev_read(&stream,&(stbuf->st_rdev));
+      //if (file->res->special!=NULL && file->res->special->dev_read!=NULL) file->res->special->dev_read(&stream,&(stbuf->st_rdev));
       stbuf->st_size = file->res->res->meta_read(&stream,CDI_FS_META_SIZE);
       stbuf->st_atime = file->res->res->meta_read(&stream,CDI_FS_META_ACCESSTIME);
       stbuf->st_mtime = file->res->res->meta_read(&stream,CDI_FS_META_CHANGETIME);
       stbuf->st_ctime = file->res->res->meta_read(&stream,CDI_FS_META_CREATETIME);
       stbuf->st_blksize = file->res->res->meta_read(&stream,CDI_FS_META_BLOCKSZ);
       stbuf->st_blocks = file->res->res->meta_read(&stream,CDI_FS_META_USEDBLOCKS);
-      stbuf->st_mode = cdi_fs_class2mode(file->res);
+      /// @todo ACL
+      stbuf->st_mode = cdi_fs_class2mode(file->res)|0755;
       return 0;
     }
     else return -EBADF;
@@ -457,13 +623,13 @@ static int fs_fstat(int fsid,int fh) {
 }
 
 static int fs_unlink(int fsid,char *path) {
-  fprintf(stderr,"fs_unlink(%d,%s)\n",fsid,path);
+  cdi_debug("fs_unlink(%d,%s)\n",fsid,path);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_res *res = cdi_fs_path2res(filesystem,path);
     if (res!=NULL) {
       struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,res);
-      //if (!llist_empty(res->children)) return -ENOTEMPTY;
+      //if (!cdi_list_empty(res->children)) return -ENOTEMPTY;
       if (!(res->file!=NULL?res->res->remove_class(&stream,CDI_FS_CLASS_FILE):1)) return -cdi_fs_error2errno(stream.error);
       if (!(res->dir!=NULL?res->res->remove_class(&stream,CDI_FS_CLASS_DIR):1)) return -cdi_fs_error2errno(stream.error);
       if (!(res->link!=NULL?res->res->remove_class(&stream,CDI_FS_CLASS_LINK):1)) return -cdi_fs_error2errno(stream.error);
@@ -476,12 +642,12 @@ static int fs_unlink(int fsid,char *path) {
 }
 
 static int fs_rmdir(int fsid,char *path) {
-  fprintf(stderr,"fs_rmdir(%d,%s)\n",fsid,path);
+  cdi_debug("fs_rmdir(%d,%s)\n",fsid,path);
   return fs_unlink(fsid,path);
 }
 
 static int fs_ftruncate(int fsid,int fh,off_t newsize) {
-  fprintf(stderr,"fs_ftruncate(%d,%d,%d)\n",fsid,fh,newsize);
+  cdi_debug("fs_ftruncate(%d,%d,%d)\n",fsid,fh,newsize);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
@@ -498,16 +664,16 @@ static int fs_ftruncate(int fsid,int fh,off_t newsize) {
 }
 
 static int fs_opendir(int fsid,int shmid) {
-  fprintf(stderr,"fs_opendir(%d,%d)\n",fsid,shmid);
+  cdi_debug("fs_opendir(%d,%d)\n",fsid,shmid);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     void *shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
       struct cdi_fs_res *res = cdi_fs_path2res(filesystem,shmbuf);
       if (res!=NULL) {
-        struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,res);
-        if (cdi_fs_loadres(&stream)==0) {
-          if (res->dir!=NULL) {
+        if (fs_is_dir(res)) {
+          struct cdi_fs_stream stream = CDI_FS_STREAM(filesystem,res);
+          if (cdi_fs_loadres(&stream)==0) {
             struct cdi_fs_file *file = malloc(sizeof(struct cdi_fs_file));
             file->res = res;
             file->fh = filesystem->last_fh++;
@@ -520,12 +686,12 @@ static int fs_opendir(int fsid,int shmid) {
           }
           else {
             shmdt(shmbuf);
-            return -ENOTDIR;
+            return -cdi_fs_error2errno(stream.error);
           }
         }
         else {
           shmdt(shmbuf);
-          return -cdi_fs_error2errno(stream.error);
+          return -ENOTDIR;
         }
       }
       else {
@@ -539,7 +705,7 @@ static int fs_opendir(int fsid,int shmid) {
 }
 
 static int fs_readdir(int fsid,int dh) {
-  fprintf(stderr,"fs_readdir(%d,%d)\n",fsid,dh);
+  cdi_debug("fs_readdir(%d,%d)\n",fsid,dh);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,dh);
@@ -572,14 +738,14 @@ static int fs_readdir(int fsid,int dh) {
 }
 
 static int fs_closedir(int fsid,int dh) {
-  fprintf(stderr,"fs_closedir(%d,%d)\n",fsid,dh);
+  cdi_debug("fs_closedir(%d,%d)\n",fsid,dh);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,dh);
     if (file!=NULL) {
       if (file->type==FILE_DIR) {
         shmdt(file->shmbuf);
-        cdi_list_remove(filesystem->files,llist_find((llist_t)filesystem->files,file));
+        cdi_list_remove(filesystem->files,cdi_list_find(filesystem->files,file));
         free(file);
         return 0;
       }
@@ -591,7 +757,7 @@ static int fs_closedir(int fsid,int dh) {
 }
 
 static off_t fs_seekdir(int fsid,int dh,off_t off) {
-  fprintf(stderr,"fs_seekdir(%d,%d,%d)\n",fsid,dh,off);
+  cdi_debug("fs_seekdir(%d,%d,%d)\n",fsid,dh,off);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,dh);
@@ -608,7 +774,7 @@ static off_t fs_seekdir(int fsid,int dh,off_t off) {
 }
 
 static int fs_statvfs(int fsid,int shmid) {
-  fprintf(stderr,"fs_statvfs(%d,%d)\n",fsid,shmid);
+  cdi_debug("fs_statvfs(%d,%d)\n",fsid,shmid);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct statvfs *stbuf = shmat(shmid,NULL,0);
@@ -624,7 +790,7 @@ static int fs_statvfs(int fsid,int shmid) {
 }
 
 static int fs_mknod(int fsid,char *path,mode_t mode,dev_t dev) {
-  fprintf(stderr,"fs_mknod(%d,%s,%d,%d)\n",fsid,path,mode,dev);
+  cdi_debug("fs_mknod(%d,%s,%d,%d)\n",fsid,path,mode,dev);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     if (cdi_fs_path2res(filesystem,path)==NULL) {
@@ -650,7 +816,7 @@ static int fs_mknod(int fsid,char *path,mode_t mode,dev_t dev) {
 }
 
 static ssize_t fs_readlink(int fsid,int shmid,size_t bufsize) {
-  fprintf(stderr,"fs_readlink(%d,%d,%d)\n",fsid,shmid,bufsize);
+  cdi_debug("fs_readlink(%d,%d,%d)\n",fsid,shmid,bufsize);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     void *shmbuf = shmat(shmid,NULL,0);
@@ -684,7 +850,7 @@ static ssize_t fs_readlink(int fsid,int shmid,size_t bufsize) {
 }
 
 static ssize_t fs_symlink(int fsid,char *src,char *dest) {
-  fprintf(stderr,"fs_symlink(%d,%s,%s)\n",fsid,src,dest);
+  cdi_debug("fs_symlink(%d,%s,%s)\n",fsid,src,dest);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     char *filename;
@@ -708,7 +874,7 @@ static ssize_t fs_symlink(int fsid,char *src,char *dest) {
 }
 
 static int fs_dup(int fsid,int fh,int shmid) {
-  fprintf(stderr,"fs_dup(%d,%d,%d)\n",fsid,fh,shmid);
+  cdi_debug("fs_dup(%d,%d,%d)\n",fsid,fh,shmid);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     struct cdi_fs_file *file = cdi_fs_file_find(filesystem,fh);
@@ -728,7 +894,7 @@ static int fs_dup(int fsid,int fh,int shmid) {
 }
 
 static int fs_utime(int fsid,int shmid) {
-  fprintf(stderr,"fs_utime(%d,%d)\n",fsid,shmid);
+  cdi_debug("fs_utime(%d,%d)\n",fsid,shmid);
   struct cdi_fs_filesystem *filesystem = cdi_fs_find(fsid);
   if (filesystem!=NULL) {
     void *shmbuf = shmat(shmid,NULL,0);
@@ -790,7 +956,7 @@ int cdi_fs_init() {
  *  @param driver FS driver
  */
 void cdi_fs_driver_init(struct cdi_fs_driver* driver) {
-  fprintf(stderr,"cdi_fs_driver_init(0x%x)\n",driver);
+  cdi_debug("fs_driver_init(0x%x)\n",driver);
   cdi_driver_init((struct cdi_driver*)driver);
   driver->filesystems = cdi_list_create();
 }
@@ -800,7 +966,7 @@ void cdi_fs_driver_init(struct cdi_fs_driver* driver) {
  *  @param driver FS driver
  */
 void cdi_fs_driver_destroy(struct cdi_fs_driver* driver) {
-  fprintf(stderr,"cdi_fs_driver_destroy(0x%x)\n",driver);
+  cdi_debug("fs_driver_destroy(0x%x)\n",driver);
   struct cdi_fs_filesystem *filesystem;
   while ((filesystem = cdi_list_pop(driver->filesystems))) driver->fs_destroy(filesystem);
   cdi_list_destroy(driver->filesystems);
@@ -812,7 +978,7 @@ void cdi_fs_driver_destroy(struct cdi_fs_driver* driver) {
  *  @param driver FS driver
  */
 void cdi_fs_driver_register(struct cdi_fs_driver* driver) {
-  fprintf(stderr,"cdi_fs_driver_register(0x%x)\n",driver);
+  cdi_debug("fs_driver_register(0x%x)\n",driver);
   cdi_driver_register((struct cdi_driver*)driver);
   char *name;
   asprintf(&name,"%s_mount",driver->drv.name);
@@ -824,7 +990,7 @@ void cdi_fs_driver_register(struct cdi_fs_driver* driver) {
 }
 
 size_t cdi_fs_data_read(struct cdi_fs_filesystem* fs,uint64_t start,size_t size,void* buffer) {
-  fprintf(stderr,"cdi_fs_data_read(0x%x,0x%x,0x%x,0x%x)\n",fs,start,size,buffer);
+  cdi_debug("fs_data_read(0x%x,0x%x,0x%x,0x%x)\n",fs,start,size,buffer);
   if (fs->data_dev!=NULL) {
     if (lseek(fs->data_fh,(off_t)start,SEEK_SET)!=-1) return read(fs->data_fh,buffer,size);
   }
@@ -832,7 +998,7 @@ size_t cdi_fs_data_read(struct cdi_fs_filesystem* fs,uint64_t start,size_t size,
 }
 
 size_t cdi_fs_data_write(struct cdi_fs_filesystem* fs,uint64_t start,size_t size,const void* buffer) {
-  fprintf(stderr,"cdi_fs_data_write(0x%x,0x%x,0x%x,0x%x)\n",fs,start,size,buffer);
+  cdi_debug("fs_data_write(0x%x,0x%x,0x%x,0x%x)\n",fs,start,size,buffer);
   if (fs->data_dev!=NULL) {
     if (lseek(fs->data_fh,(off_t)start,SEEK_SET)!=-1) return write(fs->data_fh,buffer,size);
   }
