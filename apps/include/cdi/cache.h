@@ -81,11 +81,14 @@ int cdi_cache_sync(struct cdi_cache* cache);
  *
  * @param cache     Cache-Handle
  * @param blocknum  Blocknummer
+ * @param noread    Wenn != 0 wird der Block nicht eingelesen falls er noch
+ *                  nicht im Speicher ist. Kann benutzt werden, wenn der Block
+ *                  vollstaendig ueberschrieben werden soll.
  *
  * @return Pointer auf das Block-Handle oder NULL im Fehlerfall
  */
 struct cdi_cache_block* cdi_cache_block_get(struct cdi_cache* cache,
-    uint64_t blocknum);
+    uint64_t blocknum, int noread);
 
 /**
  * Cache-Block freigeben

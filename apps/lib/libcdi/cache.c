@@ -11,37 +11,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tree.h>
 
-#define __LOST__
-//#undef __LOST__
-
-#ifdef __LOST__
-    #include "cdi.h"
-    #include "cdi/misc.h"
-#endif
-
+#include "cdi/lists.h"
 #include "cdi/cache.h"
 
-
 #define INVBLKNUM (~0L)
-#define READBUF_SZ 16
-#define NUM_HINTS 4
-
-static uint64_t cache_time = 0;
-#ifdef __LOST__
-    static cdi_list_t cache_list = NULL;
-#endif
-
-/**
- * Hints fuer die Suche im Cache
- */
-struct hint {
-    /** Index */
-    size_t      index;
-
-    /** Block der dort gefunden werden kann */
-    uint64_t    block;
-};
+#define READBUF_SZ 4
+#define HINTCNT 8
 
 /**
  * Block im Cache
@@ -56,8 +33,15 @@ struct block {
     /** Wird auf 1 gesetzt, wenn die Daten veraendert wurden */
     uint16_t                dirty;
 
-    /** Zeit der letzten Benutzung */
-    uint64_t                access_time;
+    /** Zeiger auf das naechste Element in der nach der letzten Benutzung
+        sortierten Liste. */
+    struct block*           lru_next;
+
+    /** Zeiger auf das naechste Element in der nach der letzten Benutzung
+        sortierten Liste. */
+    struct block*           lru_prev;
+
+    struct tree_item        tree_item;
 };
 
 /**
@@ -67,14 +51,14 @@ struct cache {
     /** Eigentliches Cache-Handle */
     struct cdi_cache    cache;
 
+    /** Groesse der Privaten Daten pro Block */
+    size_t              private_len;
+
     /** Anzahl der Blocks */
     size_t              block_count;
 
     /** Anzahl der benutzten Blocks */
     size_t              blocks_used;
-
-    /** Blockliste (sortiert nach offset) */
-    struct block*       blocks;
 
 
     /** Callback zum Lesen eines Blocks */
@@ -87,6 +71,18 @@ struct cache {
     void*               prv_data;
 
 
+    /** Baum mit den Blocks */
+    tree_t*             tree;
+
+
+    /** Der am laengsten nicht mehr benutzte Block */
+    struct block*       lru_first;
+
+    /** Der zuletzt benutzte Block */
+    struct block*       lru_last;
+
+
+
     /** Lesepuffer */
     uint8_t*            read_buffer;
 
@@ -97,15 +93,13 @@ struct cache {
     size_t              read_buffer_cnt;
 
 
-    /** Hints fuer Positionen */
-    struct hint         hints[NUM_HINTS];
+    /** Hints */
+    struct block*        hints[HINTCNT];
 
-    /** Zuletzt geschriebener hint-index */
-    uint16_t            prev_hint;
+    /** Letzter abgefragter Hint */
+    uint8_t             prev_hint;
 };
 
-
-static inline void put_hint(struct cache* cache, uint64_t block, size_t index);
 
 /**
  * Cache erstellen
@@ -128,7 +122,7 @@ struct cdi_cache* cdi_cache_create(size_t block_size, size_t blkpriv_len,
     void* prv_data)
 {
     struct cache* cache = malloc(sizeof(*cache));
-    size_t i;
+    int i;
 
     cache->read_block = read_block;
     cache->write_block = write_block;
@@ -136,38 +130,24 @@ struct cdi_cache* cdi_cache_create(size_t block_size, size_t blkpriv_len,
 
     // FIXME
     cache->cache.block_size = block_size;
-    cache->block_count = 64;
+    cache->block_count = 256;
     cache->blocks_used = 0;
+    cache->private_len = blkpriv_len;
 
     cache->read_buffer = malloc(cache->cache.block_size * READBUF_SZ);
     cache->read_buffer_block = INVBLKNUM;
     cache->read_buffer_cnt = 0;
 
+    cache->lru_first = NULL;
+    cache->lru_last = NULL;
+
+    cache->tree = tree_create(struct block, tree_item, cdi.number);
+
+    // Hints initialisieren
     cache->prev_hint = 0;
-    for (i = 0; i < NUM_HINTS; i++) {
-        put_hint(cache, (uint64_t) -1, 0);
+    for (i = 0; i < HINTCNT; i++) {
+        cache->hints[i] = NULL;
     }
-
-
-    cache->blocks = malloc(sizeof(struct block) * cache->block_count);
-    for (i = 0; i < cache->block_count; i++) {
-        struct block* block = cache->blocks + i;
-
-        block->cdi.number = INVBLKNUM;
-        block->cdi.data = malloc(cache->cache.block_size);
-        block->cdi.private = malloc(blkpriv_len);
-
-        block->ref_count = 0;
-        block->dirty = 0;
-    }
-
-    // Cache in die Liste eintragen damit er Synchronisiert wird
-#ifdef __LOST__
-    if (cache_list == NULL) {
-        cache_list = cdi_list_create();
-    }
-    cdi_list_push(cache_list, cache);
-#endif
 
     return (struct cdi_cache*) cache;
 }
@@ -178,39 +158,33 @@ struct cdi_cache* cdi_cache_create(size_t block_size, size_t blkpriv_len,
 void cdi_cache_destroy(struct cdi_cache* cache)
 {
     struct cache* c = (struct cache*) cache;
-    struct block* b;
-    int i;
+    struct block* b = NULL;
 
     if (!cdi_cache_sync(cache)) {
-        cdi_debug("cache: Sync fehlgeschlagen vor dem Zerstoeren!");
+        puts("cdi_cache: Sync fehlgeschlagen vor dem Zerstoeren!");
     }
 
     // Einzelne Blocks freigeben
-    for (i = 0; i < c->block_count; i++) {
-        b = c->blocks + i;
+    while ((b = tree_next(c->tree, NULL))) {
 
-        // Ungueltige Blocks ueberspringen
-        if (b->cdi.number != INVBLKNUM) {
+        tree_remove(c->tree, b);
+        if (b->ref_count) {
+            printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
+                "gefunden, der einen Referenzzaehler != 0 hat (%lld  %d)\n",
+                (unsigned long long) b->cdi.number, b->ref_count);
+        }
 
-            if (b->ref_count) {
-                cdi_debug("cache: Beim Zerstoeren des Caches wurde ein Block "
-                    "gefunden, der einen Referenzzaehler != 0 hat (%lld)\n",
-                    (unsigned long long) b->cdi.number);
-            }
-
-            if (b->dirty) {
-                cdi_debug("cache: Beim Zerstoeren des Caches wurde ein Block "
-                    "gefunden, der als veraendert markiert ist (%lld)\n",
-                    (unsigned long long) b->cdi.number);
-            }
+        if (b->dirty) {
+            printf("cdi_cache: Beim Zerstoeren des Caches wurde ein Block "
+                "gefunden, der als veraendert markiert ist (%lld)\n",
+                (unsigned long long) b->cdi.number);
         }
 
         free(b->cdi.data);
         free(b->cdi.private);
+        free(b);
     }
 
-    free(c->blocks);
-    free(c->read_buffer);
     free(c);
 }
 
@@ -262,101 +236,34 @@ static inline int cache_sync_block(struct cache* c, struct block* b)
 int cdi_cache_sync(struct cdi_cache* cache)
 {
     struct cache* c = (struct cache*) cache;;
-    struct block* b;
-    size_t i;
+    struct block* b = NULL;
 
-    for (i = 0; i < c->block_count; i++) {
-        b = c->blocks + i;
-
-        // Sobald ein Eintrag mit INVBLKNUM erreicht wird, ist das Durchsuchen
-        // beendet
-        if (b->cdi.number == INVBLKNUM) {
-            return 1;
-        }
-
+    while ((b = tree_prev(c->tree, b))) {
         cache_sync_block(c, b);
     }
 
     return 1;
 }
 
-#ifdef __LOST__
 /**
- * Caches Synchronisieren
+ * Block finden der ersetzt werden kann. Dieser wird dabei aus der LRU-Liste
+ * geloescht.
  */
-void caches_sync_all(void)
+static struct block* find_replaceable(struct cache* c)
 {
-    size_t i;
-    struct cache* c;
+    struct block* b;
 
-    if (cache_list == NULL) {
-        return;
+    // Unbenutzten Block finden
+    b = c->lru_first;
+    while (b && (b->ref_count)) {
+        b = b->lru_prev;
     }
 
-    for (i = 0; (c = cdi_list_get(cache_list, i)); i++) {
-        if (!cdi_cache_sync((struct cdi_cache*) c)) {
-            puts("cdi_cache: Fehler beim Syncen der Caches.");
-        }
+    if (b && b->dirty) {
+        cdi_cache_sync((struct cdi_cache*) c);
     }
+    return b;
 }
-#endif
-
-/**
- * Sucht das Element mit dem Enstprechenden Index, oder falls keines mit
- * diesem Index existiert, wird die Stelle angegeben an der es stehen muesste
- *
- * @param block Blocknummer des gesuchten Elements
- * @param dest  Pointer auf die Variable, in der der gefundene Index abgelegt
- *              werden soll.
- *
- * @return 1 bei Erfolg, 0 sonst
- */
-static size_t search_position(struct cache* cache, uint64_t block,
-    size_t* dest)
-{
-    size_t top = cache->blocks_used - 1;
-    size_t bottom = 0;
-    size_t pos;
-
-    // Pruefen ob offset ueberhaupt im Array enthalten ist
-    if (block < cache->blocks[0].cdi.number) {
-        *dest = 0;
-        return 0;
-    } else if (block > cache->blocks[top].cdi.number) {
-        // Wenn noch freie Blocks im Cache existieren wird der Index auf den
-        // naechst freien gelegt
-        if (top < cache->block_count - 1) {
-            top++;
-        }
-        *dest = top;
-        return 0;
-    }
-
-    // Binaere Suche nach dem Element
-    do {
-        pos = bottom + (top - bottom) / 2;
-
-        if (cache->blocks[pos].cdi.number == block) {
-            break;
-        } else if (cache->blocks[pos].cdi.number > block) {
-            top = pos - 1;
-        } else {
-            bottom = pos + 1;
-            // Falls hier gleich abgebrochen wird, muss pos auf ein Element
-            // zeigen, das nicht groesser ist, als das Gesuchte
-            pos = bottom;
-        }
-    } while (top >= bottom);
-
-    if (pos >= cache->block_count) {
-        pos = cache->block_count - 1;
-    }
-
-    *dest = pos;
-
-    return (cache->blocks[pos].cdi.number == block);
-}
-
 
 /**
  * Hint suchen fuer eine Blocknummer
@@ -365,21 +272,17 @@ static size_t search_position(struct cache* cache, uint64_t block,
  *
  * @return Index oder (size_t) -1 im Fehlerfall
  */
-static inline size_t get_hint(struct cache* cache, uint64_t block)
+static inline struct block* get_hint(struct cache* cache, uint64_t block)
 {
     int i;
 
-    if (block == (uint64_t) -1) {
-        return -1;
-    }
-
-    for (i = 0; i < sizeof(cache->hints) / sizeof(struct hint); i++) {
-        if (cache->hints[i].block == block) {
-            return cache->hints[i].index;
+    for (i = 0; i < HINTCNT; i++) {
+        if (cache->hints[i] && (cache->hints[i]->cdi.number == block)) {
+            return cache->hints[i];
         }
     }
 
-    return -1;
+    return NULL;
 }
 
 /**
@@ -388,261 +291,43 @@ static inline size_t get_hint(struct cache* cache, uint64_t block)
  * @param block Blocknummer
  * @param index Index an dem der Block gefunden werden kann
  */
-static inline void put_hint(struct cache* cache, uint64_t block, size_t index)
+static inline void put_hint(struct cache* cache, struct block* block)
 {
     cache->prev_hint++;
-    cache->prev_hint %= NUM_HINTS;
-    cache->hints[cache->prev_hint].block = block;
-    cache->hints[cache->prev_hint].index = index;
+    cache->prev_hint %= HINTCNT;
+    cache->hints[cache->prev_hint] = block;
 }
 
 /**
- * Block in der Liste finden
- *
- * @param cache Handle
- * @param block Blocknummer
- *
- * @return Pointer auf den Block oder NULL wenn er nicht in der Liste ist
+ * Block von der Platte laden.
  */
-static struct block* block_find(struct cache* cache, uint64_t block)
+static int load_block(struct cache* c, struct block* b)
 {
-    size_t i;
+    size_t block_size = c->cache.block_size;
+    uint64_t rbbnum = c->read_buffer_block;
+    uint64_t block = b->cdi.number;
 
-    i = get_hint(cache, block);
-    if ((i != -1) && (cache->blocks[i].cdi.number == block)) {
-        return cache->blocks + i;
-    }
+    // Wenn der zu lesende Block nicht im Puffer ist, wird er in den Puffer
+    // eingelesen
+    if ((rbbnum == INVBLKNUM) || (rbbnum > block) || (block >= rbbnum +
+        c->read_buffer_cnt))
+    {
+        c->read_buffer_block = rbbnum = block;
 
-    if (!search_position(cache, block, &i)) {
-        return NULL;
-    }
+        c->read_buffer_cnt = c->read_block(
+            (struct cdi_cache*) c, block, READBUF_SZ,
+            c->read_buffer, c->prv_data);
 
-    put_hint(cache, block, i);
-    return cache->blocks + i;
-}
-
-
-/**
- * Cache-Element zum ersetzen finden
- *
- * @param blocknum Blocknummer des neuen Elements
- *
- * @return Array-Index des Elements das erstezt werden kann oder block_count
- * wenn keines gefunden wurde.
- */
-static size_t find_replaceable(struct cache* cache, uint64_t blocknum)
-{
-    struct block* b = NULL;
-    size_t i;
-    size_t la_index = cache->block_count;
-
-    // Wenn noch unbenzte Blocks existieren, dann gehoert der letzte sicher dazu
-    if (cache->blocks[cache->block_count - 1].cdi.number == INVBLKNUM) {
-        return cache->block_count - 1;
-    }
-
-    for (i = 0; i < cache->blocks_used; i++) {
-        b = cache->blocks + i;
-
-        // Solte nicht passieren
-        if (b->cdi.number == INVBLKNUM) {
-            cdi_debug("cache: Hier ist ein Element mit ungueltiger Blocknummer "
-                "mitten im Array: %u",(unsigned int) i);
-            continue;
-        }
-
-        // Pruefen ob das Element prinzipiell ersetzt werden darf, wenn nicht,
-        // wird zum naechsten gesprungen
-        if (b->ref_count) {
-            continue;
-        }
-
-        // Wenn bis jetzt noch kein passendes Element gefunden wurde, dann muss
-        // es genommen werden. Andernfalls wird geprueft ob das element aelter
-        // ist
-        if ((la_index == cache->block_count) || (b->access_time <
-            cache->blocks[la_index].access_time))
-        {
-            la_index = i;
+        if (c->read_buffer_cnt == 0) {
+            puts("cdi_cache Panic: Einlesen der Daten fehlgeschlagen");
+            return 0;
         }
     }
+    memcpy(b->cdi.data, c->read_buffer + (block - rbbnum) * block_size,
+        block_size);
 
-    // Falls das Element dirty ist, muss es gespeichert werden
-    if ((la_index != cache->block_count) && (cache->blocks[la_index].dirty)) {
-        cache_sync_block(cache, cache->blocks + la_index);
-    }
-    return la_index;
-}
-
-/**
- * Block im Cache allozieren und initialisieren
- *
- * @param cache     Handle
- * @param blocknum  Blocknummer des neuen Blocks
- * @param index     Pointer auf Speicherstelle, an der der Listenindex
- *                  abgespeichert werden soll.
- *
- * @return 1 wenn ein Element gefunden wurde, 0 sonst
- */
-static size_t block_allocate(struct cache* cache, uint64_t blocknum,
-    size_t* index)
-{
-    struct block* b;
-    void* data;
-    void* private;
-
-    // Index an dem der neue Block spaeter im Array liegt
-    size_t dest;
-
-    // Index des Blocks, der ersetzt werden soll
-    size_t i;
-
-
-    // Position suchen an der der neue Block spaeter im Array liegen soll
-    if (search_position(cache, blocknum, &dest)) {
-        cdi_debug("cache: Warnung: Block, der bereits im Cache ist, soll"
-           " alloziert werden.");
-        *index = dest;
-        return 1;
-    }
-
-    // Element finden, das ersetzt werden soll
-    i = find_replaceable(cache, blocknum);
-    //printf("Replaceable: %d", i);
-    if (i == cache->block_count) {
-        return 0;
-    }
-
-    // Wenn der Block bisher nicht benutzt wurde, muss used Blocks erhoeht
-    // werden
-    if (cache->blocks[i].cdi.number == INVBLKNUM) {
-        cache->blocks_used++;
-    }
-
-    // Pointer auf daten des zu ersetzenden Blocks speichern, da die
-    // ueberschrieben werden, beim memmove
-    data = cache->blocks[i].cdi.data;
-    private = cache->blocks[i].cdi.private;
-
-    // Jetzt muessen die Array-Elemente so verschoben werden, dass die stelle an
-    // mit dem index dest frei wird und dafuer die mit index i ueberschrieben
-    // wird
-    if (i < dest) {
-        // Wenn wir die Elemente nach unten verschieben, muss das zielelement
-        // kleiner sein, als das aktuelle
-        if ((cache->blocks[dest].cdi.number > blocknum) && (dest > 0)) {
-            dest--;
-        }
-
-        memmove(cache->blocks + i, cache->blocks + i + 1, (dest - i) *
-            sizeof(struct block));
-    } else if (i > dest) {
-        // Wenn wird die Elemente nach oben verschieben, muss das zielelement
-        // groesser sein, als das aktuelle
-        if ((cache->blocks[dest].cdi.number < blocknum) &&
-            (dest < cache->block_count - 1))
-        {
-            dest++;
-        }
-
-        memmove(cache->blocks + dest + 1, cache->blocks + dest, (i - dest) *
-            sizeof(struct block));
-    }
-
-    b = cache->blocks + dest;
-    b->cdi.data = data;
-    b->cdi.number = blocknum;
-    b->cdi.private = private;
-    b->access_time = ++cache_time;
-    b->dirty = 0;
-    b->ref_count = 0;
-    *index = dest;
     return 1;
 }
-
-/**
- * Neuen block laden, der noch nicht in der Liste ist
- *
- * @param cache Handle
- * @param block Blocknummer
- * @param read  Wenn 1 dann muss der Block eingelesen werden, bei 0 wird nur
- *              ein freier Block herausgesucht (Wenn er eh ganz ueberschrieben
- *              wird)
- *
- * @return Pointer auf den Block
- */
-static struct block* block_load(struct cache* cache, uint64_t block, int read)
-{
-    size_t index;
-    struct block* b;
-    size_t block_size = cache->cache.block_size;
-
-    if (!block_allocate(cache, block, &index)) {
-        cdi_debug("cache Panic: Kein Unbenutztes Element gefunden");
-        return NULL;
-    }
-
-    b = cache->blocks + index;
-
-    if (read) {
-        uint64_t bnum = cache->read_buffer_block;
-
-        // Wenn der zu lesende Block nicht im Puffer ist, wird er in den Puffer
-        // eingelesen
-        if ((bnum == INVBLKNUM) || (bnum > block) || (block >= bnum +
-            cache->read_buffer_cnt))
-        {
-            cache->read_buffer_block = bnum = block;
-
-            cache->read_buffer_cnt = cache->read_block(
-                (struct cdi_cache*) cache, block, READBUF_SZ,
-                cache->read_buffer, cache->prv_data);
-
-            if (cache->read_buffer_cnt == 0) {
-                cdi_debug("cache Panic: Einlesen der Daten fehlgeschlagen");
-                return NULL;
-            }
-            //puts("nomatch");
-        } else {
-            //puts("match");
-        }
-
-        memcpy(b->cdi.data, cache->read_buffer + (block - bnum) * block_size,
-            block_size);
-    }
-
-    return b;
-}
-
-/**
- * Block holen; Falls er noch nicht in der Liste ist, wird er geladen
- *
- * @param cache Handle
- * @param block Blocknummer
- * @param read  Wenn 1 dann muss der Block eingelesen werden, bei 0 wird nur
- *              ein freier Block herausgesucht (Wenn er eh ganz ueberschrieben
- *              wird)
- *
- *
- * @return Pointer auf den Block
- */
-static struct block* get_block(struct cache* cache, uint64_t block, int read)
-{
-    struct block* b;
-
-    if (!(b = block_find(cache, block))) {
-        b = block_load(cache, block, read);
-    }
-
-    if (b) {
-        b->access_time = ++cache_time;
-    }
-
-
-    return b;
-}
-
-
 
 /**
  * Cache-Block holen. Dabei wird intern ein Referenzzaehler erhoeht, sodass der
@@ -652,19 +337,91 @@ static struct block* get_block(struct cache* cache, uint64_t block, int read)
  *
  * @param cache     Cache-Handle
  * @param blocknum  Blocknummer
+ * @param noread    Wenn != 0 wird der Block nicht eingelesen falls er noch
+ *                  nicht im Speicher ist. Kann benutzt werden, wenn der Block
+ *                  vollstaendig ueberschrieben werden soll.
  *
  * @return Pointer auf das Block-Handle oder NULL im Fehlerfall
  */
 struct cdi_cache_block* cdi_cache_block_get(struct cdi_cache* cache,
-    uint64_t blocknum)
+    uint64_t blocknum, int noread)
 {
-    struct block* b = get_block((struct cache*) cache, blocknum, 1);
+    struct cache* c = (struct cache*) cache;
+    struct block* b = get_hint(c, blocknum);
 
+    // Wenn das mit dem Hint nichts war muss jetzt der Baum durchsucht werden
     if (!b) {
-        return NULL;
+        b = tree_search(c->tree, blocknum);
     }
 
+    if (!b) {
+        int in_tree = 0;
+        if (c->blocks_used < c->block_count) {
+            // Wir duerfen noch mehr neue Blocks in den Cache legen
+            b = malloc(sizeof(*b));
+            memset(b, 0, sizeof(*b));
+            b->cdi.number = blocknum;
+            b->cdi.data = malloc(c->cache.block_size);
+            b->cdi.private = malloc(c->private_len);
+
+            tree_insert(c->tree, b);
+            c->blocks_used++;
+        } else {
+            // Wir muessen einen Block zum ersetzen suchen
+            b = find_replaceable(c);
+            if (!b) {
+                return NULL;
+            }
+            in_tree = 1;
+            tree_remove(c->tree, b);
+            b->cdi.number = blocknum;
+            tree_insert(c->tree, b);
+        }
+
+        // Block einlesen
+        if (!noread && !load_block(c, b)) {
+            puts("cdi_cache: Einlesen des Blocks fehlgeschlagen.");
+
+            // Wenn der Knoten bis jetzt im Baum war, muss er rausgeworfen
+            // werden
+            if (in_tree) {
+                tree_remove(c->tree, b);
+            }
+            c->blocks_used--;
+
+            free(b->cdi.data);
+            free(b);
+            return NULL;
+        }
+    }
+    put_hint(c, b);
+
     b->ref_count++;
+
+    // Wenn wir eh schon den juengsten Block in der Liste erwischt haben,
+    // muessen wir auch an der LRU-Liste nichts mehr aendern.
+    if (b == c->lru_last) {
+        return (struct cdi_cache_block*) b;
+    }
+
+    // LRU-Liste aktualisieren
+    if (b->lru_next) {
+        b->lru_next->lru_prev = b->lru_prev;
+    }
+    if (b->lru_prev) {
+        b->lru_prev->lru_next = b->lru_next;
+    }
+    if (c->lru_first == b) {
+        c->lru_first = b->lru_prev;
+    }
+    b->lru_next = c->lru_last;
+    b->lru_prev = NULL;
+    if (c->lru_last) {
+        c->lru_last->lru_prev = b;
+    } else {
+        c->lru_first = b;
+    }
+    c->lru_last = b;
 
     return (struct cdi_cache_block*) b;
 }
@@ -695,3 +452,5 @@ void cdi_cache_block_dirty(struct cdi_cache* cache,
     struct block* b = (struct block*) block;
     b->dirty = 1;
 }
+
+
