@@ -40,26 +40,18 @@ llist_t fslist;
 struct fslist_item *root_fs = NULL;
 int nextfsid;
 
-/**
- * Gets a new unique FSID
- *  @return New FSID
- */
-/*int getnew_fsid() {
-  int dub,i,fsid;
-  struct fslist_item *fs;
+//#define DEBUG
 
-  do {
-    fsid = rand();
-    dub = 0;
-    for (i=0;(fs = llist_get(fslist,i));i++) {
-      if (fs->fsid==fsid) {
-        dub = 1;
-        break;
-      }
-    }
-  } while (dub);
-  return fsid;
-}*/
+static void debug(const char *fmt,...) {
+#ifdef DEBUG
+  va_list args;
+  va_start(args,fmt);
+  fprintf(stderr,"vfs: ");
+  vfprintf(stderr,fmt,args);
+  va_end(args);
+#endif
+}
+
 #define getnew_fsid() (nextfsid++)
 
 /**
@@ -92,7 +84,7 @@ int vfs_regfs(char *name,char *mountpoint) {
   if (new->mountpoint[strlen(new->mountpoint)-1]=='/' && strlen(new->mountpoint)>1) new->mountpoint[strlen(new->mountpoint)-1] = 0;
   new->pid = rpc_curpid;
   llist_push(fslist,new);
-  fprintf(stderr,"vfs: New FS: %s %s (id=%d; pid=%d%s)\n",name,mountpoint,new->fsid,new->pid,mountpoint[0]==0?", rootfs":"");
+  debug("New FS: %s %s (id=%d; pid=%d%s)\n",name,mountpoint,new->fsid,new->pid,mountpoint[0]==0?", rootfs":"");
   if (mountpoint[0]==0) root_fs = new;
   return new->fsid;
 }
@@ -106,7 +98,7 @@ int vfs_remfs(int fsid) {
   struct fslist_item *rem = llist_get(fslist,getlid_fsid(fsid));
   if (rem->pid==rpc_curpid) {
     llist_remove(fslist,getlid_fsid(fsid));
-    fprintf(stderr,"vfs: Removed FS: %s (%d)\n",rem->name,rem->fsid);
+    debug("Removed FS: %s (%d)\n",rem->name,rem->fsid);
     path_destroy(rem->mp_path);
     free(rem->name);
     free(rem->mountpoint);
@@ -138,13 +130,13 @@ int vfs_getfsid(char *file,int parent) {
   }
 
   if (maxfs!=NULL) {
-    fprintf(stderr,"vfs: %s is on FS %s (%d)\n",file,maxfs->name,maxfs->fsid);
+    debug("%s is on FS %s (%d)\n",file,maxfs->name,maxfs->fsid);
     memmove(file,file+strlen(maxfs->mountpoint),strlen(file)-strlen(maxfs->mountpoint)+1);
     if (file[0]==0) strcpy(file,"/");
     return maxfs->fsid;
   }
   else {
-    fprintf(stderr,"vfs: Could not find FS for %s\n",file);
+    debug("Could not find FS for %s\n",file);
     return -ENOENT;
   }
 }
