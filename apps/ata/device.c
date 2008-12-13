@@ -66,8 +66,18 @@ static int ata_bus_floating(struct ata_controller* controller)
     ATA_DELAY();
     status = ata_reg_inb(controller, REG_STATUS);
 
+    // Nicht floating
+    if (status != 0xFF) {
+        return 0;
+    }
+
+    // Slave auswaehlen
+    ata_reg_outb(controller, REG_DEVICE, DEVICE_DEV(1));
+    ATA_DELAY();
+    status = ata_reg_inb(controller, REG_STATUS);
+
     // Wenn alle Bits gesetzt sind, ist der Bus floating
-    return (status == 0xFF);
+    return 1;
 }
 
 /**

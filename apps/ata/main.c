@@ -39,7 +39,6 @@
 #include <stdarg.h>
 
 #include "cdi/storage.h"
-#include "cdi/pci.h"
 #include "cdi/lists.h"
 
 #include "device.h"
