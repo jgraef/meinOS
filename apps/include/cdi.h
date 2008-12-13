@@ -52,6 +52,8 @@ struct cdi_driver {
 /// @note meinOS specific
 cdi_list_t cdi_drivers;
 cdi_list_t cdi_filesystems;
+//#define CDI_DEBUG stderr
+void cdi_debug(const char *fmt,...);
 
 void cdi_init();
 void cdi_run_drivers();
