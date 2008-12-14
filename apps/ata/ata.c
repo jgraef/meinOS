@@ -89,7 +89,7 @@ int ata_drv_identify(struct ata_device* dev)
     // Wenn keiner der LBA-Modi unterstuetzt wird, muss abgebrochen werden, da
     // CHS noch nicht implementiert ist.
     if (!dev->lba48 && !dev->lba28) {
-        debug("Geraet unterstuetzt nur CHS.\n");
+        DEBUG("Geraet unterstuetzt nur CHS.\n");
         return 0;
     }
 

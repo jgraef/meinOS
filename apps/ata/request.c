@@ -57,6 +57,8 @@ static inline int ata_drv_wait_ready(struct ata_device* dev, uint8_t bits,
     struct ata_controller* ctrl = dev->controller;
     uint32_t time = 0;
 
+    ATA_DELAY(dev->controller);
+
     // Zuerst warten, bis das Busy-Bit nicht meht gesetzt ist, denn erst dann
     // sind die anderen Bits gueltig
     while (((ata_reg_inb(ctrl, REG_STATUS) & STATUS_BSY)) &&
@@ -67,7 +69,7 @@ static inline int ata_drv_wait_ready(struct ata_device* dev, uint8_t bits,
     }
 
     // Dem Geraet etwas Zeit geben
-    ATA_DELAY();
+    ATA_DELAY(dev->controller);
 
     // Jetzt koennen wir warten bis die gewuenschten Bits gesetzt sind
     while (((ata_reg_inb(ctrl, REG_STATUS) & bits) != bits) &&
@@ -160,7 +162,7 @@ static int ata_protocol_non_data(struct ata_request* request)
                 // Auf IRQ warten
                 if (ata_wait_irq(ctrl, ATA_IRQ_TIMEOUT)) {
                     request->error = IRQ_TIMEOUT;
-                    debug("non_data IRQ-Timeout\n");
+                    DEBUG("non_data IRQ-Timeout\n");
                     return 0;
                 }
 
@@ -216,7 +218,7 @@ int ata_protocol_pio_in(struct ata_request* request)
                 // Auf IRQ warten
                 if (ata_wait_irq(ctrl, ATA_IRQ_TIMEOUT)) {
                     request->error = IRQ_TIMEOUT;
-                    debug("pio_in IRQ-Timeout\n");
+                    DEBUG("pio_in IRQ-Timeout\n");
                     return 0;
                 }
 
@@ -238,12 +240,12 @@ int ata_protocol_pio_in(struct ata_request* request)
                 // gelaufen.
                 if ((status & (STATUS_BSY | STATUS_DRQ)) == 0) {
                     // TODO: Fehlerbehandlung
-                    debug("pio_in unerwarteter Status: 0x%x\n", status);
+                    DEBUG("pio_in unerwarteter Status: 0x%x\n", status);
                     return 0;
                 } else if ((status & STATUS_BSY) == STATUS_BSY) {
                     // Wenn das Busy-Flag gesetzt ist, muss gewartet werden,
                     // bis es geloescht wird.
-                    cdi_sleep_ms(20);
+                    ATA_DELAY(ctrl);
                 } else if ((status & (STATUS_BSY | STATUS_DRQ)) == STATUS_DRQ)
                 {
                     // Wenn nur DRQ gesetzt ist, sind Daten bereit um abgeholt
@@ -254,14 +256,11 @@ int ata_protocol_pio_in(struct ata_request* request)
             }
 
             case TRANSFER_DATA: {
-                uint16_t i;
                 uint16_t* buffer = (uint16_t*) (request->buffer + (request->
                     blocks_done * request->block_size));
 
-                // Einen Block einlesen
-                for (i = 0; i < request->block_size / 2; i++) {
-                    buffer[i] = ata_reg_inw(ctrl, REG_DATA);
-                }
+                ata_insw(ata_reg_base(ctrl, REG_DATA) + REG_DATA, buffer,
+                    request->block_size / 2);
 
                 // Anzahl der gelesenen Block erhoehen
                 request->blocks_done++;
@@ -316,7 +315,7 @@ int ata_protocol_pio_out(struct ata_request* request)
                 // Auf IRQ warten
                 if (ata_wait_irq(ctrl, ATA_IRQ_TIMEOUT)) {
                     request->error = IRQ_TIMEOUT;
-                    debug("pio_out IRQ-Timeout\n");
+                    DEBUG("pio_out IRQ-Timeout\n");
                     return 0;
                 }
 
@@ -324,7 +323,7 @@ int ata_protocol_pio_out(struct ata_request* request)
                 {
                     // Paketgroesse einlesen, da sonst unendlich viel geschrieben wird
                     packet_size = ata_reg_inb(ctrl,REG_LBA_MID)|(ata_reg_inb(ctrl,REG_LBA_HIG)<<8);
-                    debug("packet_size = %d\n",packet_size);
+                    DEBUG("packet_size = %d\n",packet_size);
                 }
 
                 // Jetzt muss der Status ueberprueft werden
@@ -351,7 +350,7 @@ int ata_protocol_pio_out(struct ata_request* request)
                 else if ((status & (STATUS_BSY | STATUS_DRQ)) == 0)
                 {
                     // TODO: Fehlerbehandlung
-                    debug("pio_out unerwarteter Status: 0x%x\n",
+                    DEBUG("pio_out unerwarteter Status: 0x%x\n",
                            status);
                     return 0;
 
@@ -408,7 +407,7 @@ int ata_request(struct ata_request* request)
    // printf("ata: [%d:%d] Request command=%x count=%x lba=%llx protocol=%x\n", request->dev->controller->id, request->dev->id, request->registers.ata.command, request->registers.ata.count, request->registers.ata.lba, request->protocol);
     // Befehl ausfuehren
     if (!ata_request_command(request)) {
-        debug("Fehler bei der Befehlsausfuehrung\n");
+        DEBUG("Fehler bei der Befehlsausfuehrung\n");
         return 0;
     }
 

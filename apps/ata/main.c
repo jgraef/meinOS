@@ -36,7 +36,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 
 #include "cdi/storage.h"
 #include "cdi/lists.h"
@@ -137,14 +136,4 @@ static void ata_driver_destroy(struct cdi_driver* driver)
 static void atapi_driver_destroy(struct cdi_driver* driver)
 {
     cdi_scsi_driver_destroy((struct cdi_scsi_driver*) driver);
-}
-
-void debug(const char *fmt,...) {
-#ifdef DEBUG
-  va_list args;
-  va_start(args,fmt);
-  fprintf(DEBUG,"ata: ");
-  vfprintf(DEBUG,fmt,args);
-  va_end(args);
-#endif
 }

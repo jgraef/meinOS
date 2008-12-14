@@ -54,7 +54,9 @@
 #define ATA_SECONDARY_CTL_BASE  0x376
 #define ATA_SECONDARY_IRQ       15
 
-#define ATA_DELAY()
+#define ATA_DELAY(c) do { ata_reg_inb(c, REG_ALT_STATUS); \
+    ata_reg_inb(c, REG_ALT_STATUS);\
+    ata_reg_inb(c, REG_ALT_STATUS); } while (0)
 
 // Hinweis: Worst Case nach ATA-Spec waeren 30 Sekunden
 #define ATA_IDENTIFY_TIMEOUT    5000
@@ -99,12 +101,17 @@
                                 STATUS_DRQ | STATUS_ERR)
 
 // Befehle
-//#define COMMAND_IDENTIFY        0xEC
+#define COMMAND_IDENTIFY        0xEC
 
 // Control Register
 #define CONTROL_HOB             (1 << 7)
 #define CONTROL_SRST            (1 << 2)
 #define CONTROL_NIEN            (1 << 1)
+
+// Debug
+/*#define DEBUG(...) do { printf("ata: "); \
+    printf(__VA_ARGS__); } while (0);*/
+#define DEBUG(...)
 
 /**
  * Resultat beim IDENTIFY DEVICE Befehl
@@ -491,10 +498,19 @@ static inline void ata_reg_outw(struct ata_controller* controller,
 static inline void ata_drv_select(struct ata_device* dev)
 {
     ata_reg_outb(dev->controller, REG_DEVICE, DEVICE_DEV(dev->id));
-    ATA_DELAY();
+    ATA_DELAY(dev->controller);
 }
 
-//#define DEBUG stderr
-void debug(const char *fmt,...);
+/**
+ * Mehrere Words von einem Port einlesen
+ *
+ * @param port   Portnummer
+ * @param buffer Puffer in dem die Words abgelegt werden sollen
+ * @param count  Anzahl der Words
+ */
+static inline void ata_insw(uint16_t port, void* buffer, uint32_t count)
+{
+    asm volatile("rep; insw" : "+D"(buffer), "+c"(count) : "d"(port));
+}
 
 #endif
