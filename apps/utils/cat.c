@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <ctype.h>
 
-void usage(char *prog,int ret) {
+static void usage(char *prog,int ret) {
   FILE *stream = ret==0?stdout:stderr;
   fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
   fprintf(stream,"Echo the STRING(s) to standard output\n");
@@ -33,11 +33,11 @@ void usage(char *prog,int ret) {
 }
 
 // flags
-int non_print,display_ends,display_tabs,squeeze_blank;
-enum { NO, NONBLANK, ALL } number;
+static int non_print,display_ends,display_tabs,squeeze_blank;
+static enum { NO, NONBLANK, ALL } number;
 
 // current count of new lines
-int blanklines_cur,blanklines,lines;
+static int blanklines_cur,blanklines,lines;
 
 void escape_string(char chr) {
   if (chr=='\a') puts("^G");
@@ -54,7 +54,7 @@ static inline void print_line(char nextchr) {
   }
 }
 
-void cat(FILE *fd) {
+static void cat(FILE *fd) {
   char buf[BUFSIZ+1];
   buf[BUFSIZ] = 0; // for print_line()
 
@@ -102,7 +102,7 @@ int main(int argc,char *argv[]) {
   blanklines = 0;
   lines = 0;
 
-  while ((c = getopt(argc,argv,":AbeEnstTuhv"))!=-1) {
+  while ((c = getopt(argc,argv,":AbeEnstTuhVv"))!=-1) {
     switch(c) {
       case 'A':
         non_print = 1;
@@ -141,7 +141,7 @@ int main(int argc,char *argv[]) {
       case 'h':
         usage(argv[0],0);
         break;
-      case 'V': /// @todo FIXME
+      case 'V':
         printf("cat v0.1\n(c) 2008 Janosch Graef\n");
         return 0;
         break;
