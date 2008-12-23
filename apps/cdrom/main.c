@@ -23,6 +23,7 @@
 #include <devfs.h>
 #include <llist.h>
 #include <unistd.h>
+#include <rpc.h>
 
 #include "device.h"
 
