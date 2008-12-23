@@ -22,14 +22,17 @@
 #include <dirent.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 static void usage(char *cmd,int ret) {
   FILE *stream = ret==0?stdout:stderr;
-  fprintf(stream,"Usage: %s [OPTION]... MODE FILE...\n");
+  fprintf(stream,"Usage: %s [OPTION]... MODE FILE...\n",cmd);
   fprintf(stream,"Changes mode of a file\n");
   fprintf(stream,"\t-R\tRecurse in directories\n");
   fprintf(stream,"\t-h\tShow this help message\n");
   fprintf(stream,"\t-v\tOutput version information and exit\n");
+  exit(ret);
 }
 
 static void do_chmod(const char *path,mode_t mode,int recursive) {

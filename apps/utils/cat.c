@@ -20,16 +20,26 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 static void usage(char *prog,int ret) {
   FILE *stream = ret==0?stdout:stderr;
-  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
+  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n",prog);
   fprintf(stream,"Echo the STRING(s) to standard output\n");
-  fprintf(stream,"\t-n\tdo not output the trailing newline\n");
-  fprintf(stream,"\t-e\tenable interpretation of backslash escapes\n");
-  fprintf(stream,"\t-E\tdisable interpretation of backslash escapes (default)\n");
+  fprintf(stream,"\t-A\tSame as -vET\n");
+  fprintf(stream,"\t-b\tNumber not empty lines\n");
+  fprintf(stream,"\t-e\tSame as -vE\n");
+  fprintf(stream,"\t-E\tPrint $ after each line\n");
+  fprintf(stream,"\t-n\tNumber all lines\n");
+  fprintf(stream,"\t-s\tSqueeze continuing blank lines\n");
+  fprintf(stream,"\t-t\tSame as -vT\n");
+  fprintf(stream,"\t-T\tOutput tabulator as ^I\n");
+  fprintf(stream,"\t-u\tignored\n");
+  fprintf(stream,"\t-v\tUse ^- and M-notation, except for linefeed and tabulator\n");
+
   fprintf(stream,"\t-h\tdisplay this help and exit\n");
-  fprintf(stream,"\t-v\toutput version information and exit\n");
+  fprintf(stream,"\t-V\toutput version information and exit\n");
+  exit(ret);
 }
 
 // flags
@@ -50,7 +60,7 @@ void escape_string(char chr) {
 
 static inline void print_line(char nextchr) {
   if (number!=NO && nextchr!=0 && (number==ALL || nextchr!='\n' || nextchr!='\r')) {
-    printf("% 6d  ");
+    printf(" % 4d  ",lines);
   }
 }
 
@@ -102,7 +112,7 @@ int main(int argc,char *argv[]) {
   blanklines = 0;
   lines = 0;
 
-  while ((c = getopt(argc,argv,":AbeEnstTuhVv"))!=-1) {
+  while ((c = getopt(argc,argv,":AbeEnstTuvhV"))!=-1) {
     switch(c) {
       case 'A':
         non_print = 1;

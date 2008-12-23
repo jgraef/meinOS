@@ -22,15 +22,16 @@
 #include <unistd.h>
 #include <stddef.h>
 
-void usage(char *prog,int ret) {
+static void usage(char *prog,int ret) {
   FILE *stream = ret==0?stdout:stderr;
-  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
+  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n",prog);
   fprintf(stream,"Echo the STRING(s) to standard output\n");
   fprintf(stream,"\t-n\tdo not output the trailing newline\n");
   fprintf(stream,"\t-e\tenable interpretation of backslash escapes\n");
   fprintf(stream,"\t-E\tdisable interpretation of backslash escapes (default)\n");
   fprintf(stream,"\t-h\tdisplay this help and exit\n");
   fprintf(stream,"\t-v\toutput version information and exit\n");
+  exit(ret);
 }
 
 /**
@@ -107,12 +108,12 @@ int main(int argc,char *argv[]) {
     if (escape) string = escape_string(argv[c],&newline);
     else string = argv[c];
 
-    printf("%s",string);
+    fputs(string,stdout);
     if (c<argc-1) putchar(' ');
 
     if (escape) free(string);
-  }
 
+  }
   if (newline) putchar('\n');
 
   return 0;

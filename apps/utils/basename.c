@@ -19,13 +19,16 @@
 #include <stdio.h>
 #include <libgen.h>
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-void usage(char *cmd,int ret) {
+static void usage(char *cmd,int ret) {
   FILE *stream = ret==0?stdout:stderr;
-  fprintf(stream,"Usage: %s PATH [SUFFIX]...\n");
+  fprintf(stream,"Usage: %s PATH [SUFFIX]...\n",cmd);
   fprintf(stream,"Return non-directory portion of a pathname. If SUFFIX is given, remove that to\n");
   fprintf(stream,"\t-h\tshow this help message\n");
   fprintf(stream,"\t-v\toutput version information and exit\n");
+  exit(ret);
 }
 
 int main(int argc,char *argv[]) {
@@ -50,13 +53,13 @@ int main(int argc,char *argv[]) {
   }
 
   // get parameters
-  if (optind!=argc) path = argv[optind];
+  if (optind<argc) path = argv[optind];
   else {
     fprintf(stderr,"No path given\n");
     usage(argv[0],1);
   }
   optind++;
-  if (optind!=argc) suffix = argv[optind];
+  if (optind<argc) suffix = argv[optind];
 
   // get filename
   char *file = basename(path);

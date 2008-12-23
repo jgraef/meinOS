@@ -18,11 +18,12 @@
 
 #include <pwd.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 static void usage(char *cmd,int ret) {
   FILE *stream = ret==0?stdout:stderr;
-  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n");
+  fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n",cmd);
   fprintf(stream,"Print the real and effective UIDs and GIDs\n");
   fprintf(stream,"\t-g\tPrint only GID\n");
   fprintf(stream,"\t-n\tDisplay name instead of ID\n");
@@ -30,6 +31,7 @@ static void usage(char *cmd,int ret) {
   fprintf(stream,"\t-u\tPrint only UID\n");
   fprintf(stream,"\t-h\tshow this help message\n");
   fprintf(stream,"\t-v\toutput version information and exit\n");
+  exit(ret);
 }
 
 int main(int argc,char *argv[]) {

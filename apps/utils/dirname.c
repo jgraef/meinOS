@@ -19,11 +19,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <libgen.h>
 
 static void usage(char *cmd,int ret) {
   FILE *stream = ret==0?stdout:stderr;
   fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n",cmd);
-  fprintf(stream,"Print current work directory\n");
+  fprintf(stream,"Print directory portion of filename\n");
   fprintf(stream,"\t-h\tshow this help message\n");
   fprintf(stream,"\t-v\toutput version information and exit\n");
   exit(ret);
@@ -31,6 +32,7 @@ static void usage(char *cmd,int ret) {
 
 int main(int argc,char *argv[]) {
   int c;
+  char *path;
 
   while ((c = getopt(argc,argv,":hv"))!=-1) {
     switch(c) {
@@ -38,7 +40,7 @@ int main(int argc,char *argv[]) {
         usage(argv[0],0);
         break;
       case 'v':
-        printf("pwd v0.1\n(c) 2008 Janosch Graef\n");
+        printf("dirname v0.1\n(c) 2008 Janosch Graef\n");
         return 0;
         break;
       case '?':
@@ -48,11 +50,13 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  char *cwd = getcwd(NULL,0);
-  if (cwd!=NULL) {
-    puts(cwd);
-    free(cwd);
-    return 0;
+  if (optind<argc) path = argv[optind];
+  else {
+    fprintf(stderr,"No path given\n");
+    usage(argv[0],1);
   }
-  else return 1;
+
+  puts(dirname(path));
+
+  return 0;
 }

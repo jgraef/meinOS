@@ -16,63 +16,45 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/types.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <unistd.h>
-
-#include "factor_wheel.h"
+#include <signal.h>
 
 static void usage(char *cmd,int ret) {
   FILE *stream = ret==0?stdout:stderr;
-  fprintf(stream,"Usage: %s [OPTION]... [NUMBER]...\n",cmd);
-  fprintf(stream,"Print prime factors of each number\n");
+  fprintf(stream,"Usage: %s [OPTION]... [FILE]...\n",cmd);
+  fprintf(stream,"Duplicate standard input\n");
+  fprintf(stream,"\t-a\tAppend the output to the files\n");
+  fprintf(stream,"\t-i\tIgnore SIGINT signal\n");
   fprintf(stream,"\t-h\tshow this help message\n");
   fprintf(stream,"\t-v\toutput version information and exit\n");
   exit(ret);
 }
 
-static void factor(char *str) {
-  unsigned int n,n0,q;
-  unsigned int d = 2;
-  unsigned char const *w = wheel_tab;
-
-  errno = 0;
-  if ((n0 = strtoul(str,NULL,10))==0 && errno!=0) {
-    fprintf(stderr,"factor: %s: %s\n",str,strerror(errno));
-    return;
-  }
-
-  printf("%d:\n",n0);
-  n = n0;
-  do {
-    q = n/d;
-    while (n==q*d) {
-      printf(" %d",d);
-      n = q;
-      q = n / d;
-    }
-    d += *(w++);
-    if (w==WHEEL_END) w = WHEEL_START;
-  }
-  while (d<=q);
-
-  if (n!=1 || n0==1) printf(" %d",n);
-
-  putchar('\n');
-}
-
 int main(int argc,char *argv[]) {
   int c;
+  size_t num_files,i;
+  int append = 0;
+  int ignore = 1;
+  FILE **fds;
 
-  while ((c = getopt(argc,argv,":hv"))!=-1) {
+  while ((c = getopt(argc,argv,":aihv"))!=-1) {
     switch(c) {
+      case 'a':
+        append = 1;
+        break;
+      case 'i':
+        ignore = 1;
+        break;
       case 'h':
         usage(argv[0],0);
         break;
       case 'v':
-        printf("factor v0.1\n(c) 2008 Janosch Graef\n");
+        printf("dirname v0.1\n(c) 2008 Janosch Graef\n");
         return 0;
         break;
       case '?':
@@ -82,22 +64,42 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  if (optind<argc) {
-    int i;
-    for (i=optind;i<argc;i++) factor(argv[i]);
+  // check stdin and stdout
+  if (stdin==NULL) {
+    fprintf(stderr,"Can't open stdin\n");
+    return 1;
   }
-  else {
-    if (stdin==NULL) {
-      fprintf(stderr,"factor: can't use stdin\n");
-      return 1;
-    }
+  if (stdout==NULL) {
+    fprintf(stderr,"Can't open stdout\n");
+    return 1;
+  }
 
+  // ignore SIGINT if have to
+  if (ignore) signal(SIGINT,SIG_IGN);
+
+  // open files
+  num_files = argc-optind;
+  fds = malloc(num_files*sizeof(FILE*));
+  for (i=0;i<num_files;i++) {
+    fds[i] = fopen(argv[optind+i],append?"a":"w");
+    if (fds[i]==NULL) fprintf(stderr,"tee: %s: %s",argv[optind+i],strerror(errno));
+  }
+
+  // do RW
+  while (!feof(stdin)) {
     char buf[1024];
-    while (!feof(stdin)) {
-      char *line = fgets(buf,1024,stdin);
-      if (line!=NULL) factor(line);
+    size_t size = fread(buf,1,size,stdin);
+    fwrite(buf,1,size,stdout);
+    for (i=0;i<num_files;i++) {
+      if (fds[i]!=NULL) fwrite(buf,1,size,fds[i]);
     }
   }
+
+  // close files
+  for (i=0;i<num_files;i++) {
+    if (fds[i]!=NULL) fclose(fds[i]);
+  }
+  free(fds);
 
   return 0;
 }
