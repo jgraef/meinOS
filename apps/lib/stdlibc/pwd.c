@@ -26,12 +26,10 @@ static llist_t pwd_list = NULL;
 static size_t pwd_idx = 0;
 
 static void pwd_init() {
-  char *filename;
-  asprintf(&filename,"%s/etc/passwd",getenv("ETC"));
-  FILE *fd = fopen(filename,"r");
-  free(filename);
+  //char *filename;
+  //FILE *fd = fopen("/etc/passwd","r");
   /// @todo Read from file and do some scanf or regex stuff
-  fclose(fd);
+  //fclose(fd);
 }
 
 struct passwd *getpwnam(const char *name) {
