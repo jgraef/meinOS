@@ -34,7 +34,7 @@ int cdi_fs_init();
  * Destroys CDI
  */
 void cdi_destroy() {
-  cdi_debug("destroy\n");
+  CDI_DEBUG("destroy\n");
   struct cdi_driver* driver;
   while ((driver = cdi_list_pop(cdi_drivers))) driver->destroy(driver);
 }
@@ -43,7 +43,7 @@ void cdi_destroy() {
  * Initializes CDI
  */
 void cdi_init() {
-  cdi_debug("init\n");
+  CDI_DEBUG("init\n");
   atexit(cdi_destroy);
   cdi_drivers = cdi_list_create();
   cdi_filesystems = cdi_list_create();
@@ -55,13 +55,13 @@ void cdi_init() {
  * Runs all CDI drivers
  */
 void cdi_run_drivers() {
-  cdi_debug("run drivers\n");
+  CDI_DEBUG("run drivers\n");
   struct cdi_driver* driver;
   struct cdi_device* device;
   int i, j;
 
   for (i=0;(driver = cdi_list_get(cdi_drivers,i));i++) {
-    cdi_debug("init driver: %s\n",driver->name);
+    CDI_DEBUG("init driver: %s\n",driver->name);
     for (j = 0;(device = cdi_list_get(driver->devices,j));j++) {
       device->driver = driver;
       if (driver->init_device!=NULL) driver->init_device(device);
@@ -76,7 +76,7 @@ void cdi_run_drivers() {
  *  @param driver Driver to initialize
  */
 void cdi_driver_init(struct cdi_driver* driver) {
-  cdi_debug("driver init\n");
+  CDI_DEBUG("driver init\n");
   driver->devices = cdi_list_create();
 }
 
@@ -85,7 +85,7 @@ void cdi_driver_init(struct cdi_driver* driver) {
  *  @param driver Driver to destroy
  */
 void cdi_driver_destroy(struct cdi_driver* driver) {
-  cdi_debug("driver destroy: %s\n",driver->name);
+  CDI_DEBUG("driver destroy: %s\n",driver->name);
   cdi_list_destroy(driver->devices);
 }
 
@@ -94,21 +94,6 @@ void cdi_driver_destroy(struct cdi_driver* driver) {
  *  @param driver Driver to register
  */
 void cdi_driver_register(struct cdi_driver* driver) {
-  cdi_debug("driver register: %s\n",driver->name);
+  CDI_DEBUG("driver register: %s\n",driver->name);
   cdi_list_push(cdi_drivers,driver);
-}
-
-/**
- * Prints debug message
- *  @param fmt Format
- *  @param ... Parameters
- */
-void cdi_debug(const char *fmt,...) {
-#ifdef CDI_DEBUG
-  va_list args;
-  va_start(args,fmt);
-  fprintf(CDI_DEBUG,"cdi (%d): ",getpid());
-  vfprintf(CDI_DEBUG,fmt,args);
-  va_end(args);
-#endif
 }

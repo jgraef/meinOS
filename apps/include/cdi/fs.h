@@ -44,6 +44,15 @@ struct cdi_fs_driver {
      */
     int (*fs_destroy)(struct cdi_fs_filesystem* fs);
 
+    /**
+     * Dateisystem mit dem Volume synchronisieren
+     *
+     * @return Wenn das Dateisystem erfolgreich mit dem Volume synchronisiert
+     *         wurde 1, 0 sonst. Falls ein Fehler auftritt, muss das
+     *         error-Feld in der Dateisystemstruktur gesetzt werden.
+     */
+    int (*fs_sync)(struct cdi_fs_filesystem* fs);
+
     /// @note meinOS specific
     cdi_list_t filesystems;
 };

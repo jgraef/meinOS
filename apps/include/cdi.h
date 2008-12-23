@@ -25,6 +25,11 @@
 
 #define CDI_STANDALONE
 
+// Debug (meinOS specific)
+/*#define CDI_DEBUG(...) do { fprintf(stderr,"cdi: "); \
+    fprintf(stderr,__VA_ARGS__); } while (0);*/
+#define CDI_DEBUG(...)
+
 typedef enum {
     CDI_UNKNOWN    = 0,
     CDI_NETWORK    = 1,
@@ -41,19 +46,17 @@ struct cdi_device {
 };
 
 struct cdi_driver {
-    cdi_device_type_t   type;
-    const char*         name;
-    cdi_list_t          devices;
-    void (*init_device)(struct cdi_device* device);
-    void (*remove_device)(struct cdi_device* device);
-    void (*destroy)(struct cdi_driver *driver);
+  cdi_device_type_t   type;
+  const char*         name;
+  cdi_list_t          devices;
+  void (*init_device)(struct cdi_device* device);
+  void (*remove_device)(struct cdi_device* device);
+  void (*destroy)(struct cdi_driver *driver);
 };
 
 /// @note meinOS specific
 cdi_list_t cdi_drivers;
 cdi_list_t cdi_filesystems;
-//#define CDI_DEBUG stderr
-void cdi_debug(const char *fmt,...);
 
 void cdi_init();
 void cdi_run_drivers();
