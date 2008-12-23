@@ -41,7 +41,7 @@
 
 #include <readline/readline.h>
 
-#define BUFFER_SIZE 255
+#define BUFFER_SIZE 1024
 
 static llist_t history = NULL;
 
@@ -396,7 +396,7 @@ seq_nomatch:
             case '\n':
                 enter = 1;
 
-                printf("\n");
+                putchar('\n');
                 fflush(stdout);
                 break;
 
