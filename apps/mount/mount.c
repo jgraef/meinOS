@@ -28,7 +28,6 @@ void usage(char *cmd,int err) {
 }
 
 int main(int argc,char *argv[]) {
-#if 0
   char *type = NULL;
   char *dev = NULL;
   char *mountpoint = NULL;
@@ -99,9 +98,4 @@ int main(int argc,char *argv[]) {
     printf("TODO: List\n");
     return -1;
   }
-#endif
-
-  printf("[MOUNT ] mount is here (PID: %d)\n",getpid());
-  while (1);
-
 }
