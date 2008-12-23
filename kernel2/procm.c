@@ -463,6 +463,7 @@ pid_t proc_waitpid(pid_t pid,int *stat_loc,int options) {
     if (proc!=NULL) {
       if (proc->defunc) {
         *stat_loc = proc->ret;
+        /// @todo remove child
         return pid;
       }
     }
@@ -483,9 +484,13 @@ void proc_exit(int ret) {
   if (proc_current->parent!=NULL) {
     if (proc_current->parent->wait) {
       pid_t pid = proc_current->parent->wait_pid;
-      if (pid==-1 || (pid>0 && pid==proc_current->pid) || (pid==0 && proc_current->gid==proc_current->parent->gid) || (pid<-1 && -pid==proc_current->gid)) {
+      if (pid==-1 || pid==proc_current->pid || (pid==0 && proc_current->gid==proc_current->parent->gid) || (pid<-1 && -pid==proc_current->gid)) {
         proc_current->parent->registers.eax = proc_current->pid;
-        if (proc_current->parent->wait_stat!=NULL) *(proc_current->parent->wait_stat) = ret;
+        if (proc_current->parent->wait_stat!=NULL) {
+          memuser_load_addrspace(proc_current->parent->addrspace);
+          *(proc_current->parent->wait_stat) = ret;
+          memuser_load_addrspace(proc_current->addrspace);
+        }
         proc_current->parent->wait = 0;
         proc_wake(proc_current->parent);
       }

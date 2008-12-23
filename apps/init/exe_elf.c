@@ -39,7 +39,7 @@ static int elf_validate(elf_header_t *header) {
   if (header->ident[EI_VERSION]!=header->version) return 0;
   return 1;
 }
-
+#include <stdio.h>
 static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t file_addr,size_t file_size,int writable) {
   if (mem_addr<(void*)USERSPACE_ADDRESS) return -1;
   size_t i;
@@ -51,7 +51,8 @@ static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t fi
   for (i=0;i<mem_size;i+=PAGE_SIZE) {
     void *buf = mem_alloc(PAGE_SIZE);
     size_t cur_count = i>file_size?0:(i+PAGE_SIZE>file_size?file_size%PAGE_SIZE:PAGE_SIZE);
-    read(fh,buf,cur_count);
+    if (cur_count>0) read(fh,buf,cur_count);
+    else memset(buf,0,PAGE_SIZE);
     if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)==0) proc_memunmap(own_pid,buf);
     else {
       proc_memfree(own_pid,buf);

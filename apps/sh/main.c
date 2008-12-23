@@ -27,6 +27,7 @@
 #include <pwd.h>
 #include <dirent.h>
 #include <errno.h>
+#include <llist.h>
 #include <misc.h>
 
 #include <readline/readline.h>
@@ -43,17 +44,19 @@ typedef struct {
   pid_t pid;
   char *path;
   char **argv;
-  int stdin;
-  int stdout;
-  int stderr;
-} shell_proc_t;
+  char *stdin;
+  char *stdout;
+  char *stderr;
+} shell_job_t;
 
 struct utsname utsname;
 struct passwd *passwd;
+llist_t joblist;
 
 static void usage(char *cmd,int err) {
   FILE *out = err?stderr:stdout;
   fprintf(out,"Usage: %s\n");
+  exit(err);
 }
 
 /**
@@ -67,7 +70,9 @@ static char *shell_get_command() {
 
   asprintf(&prompt,"%s@%s:%s> ",passwd!=NULL?passwd->pw_name:"nobody",utsname.nodename,cwd);
   input = readline(prompt);
-  if (input && input[0]!=0) add_history(input);
+  if (input!=NULL) {
+    if (input[0]!=0) add_history(input);
+  }
   else return NULL;
 
   free(prompt);
@@ -135,18 +140,17 @@ static char **shell_parse_cmd(char *cmd) {
   char **argv = NULL;
   int argc = 0;
 
-  // skip beginning spaces
-  while (*cur==' ') cur++;
-
   do {
+    // skip spaces
+    while (*cur==' ') cur++;
+    if (*cur==0) break;
+
     // find next space (or quotation mark)
     next = strchr(cur,quote?'\"':' ');
     if (next==NULL) next = cmd+strlen(cmd);
-    // if next character is a quotation mark, activate qoute mode
-    //if (*next=='\"') mode = 1;
 
-    // skip spaces
-    //while (*next==' ') next++;
+    // if next character is a quotation mark, activate qoutation mode
+    //if (*next=='\"') qoute = 1;
 
     // add current to argv
     argv = realloc(argv,(argc+1)*sizeof(char*));
@@ -154,14 +158,31 @@ static char **shell_parse_cmd(char *cmd) {
     cur = next+1;
   } while (*next!=0);
 
-  argv = realloc(argv,(argc+1)*sizeof(char*));
-  argv[argc] = NULL;
-
-  return argv;
+  if (argc>0) {
+    argv = realloc(argv,(argc+1)*sizeof(char*));
+    argv[argc] = NULL;
+    return argv;
+  }
+  else return NULL;
 }
 
 static int shell_builtin_exit(char **argv) {
   return 1;
+}
+
+static int shell_builtin_help(char **argv) {
+  printf("Built-in commands:\n"
+         " exit              Exit shell\n"
+         " cd DIR            Change working directory to DIR\n"
+         " ls [DIR]          List content of DIR\n"
+         " help              Show this help dialog\n"
+         " version           Show version\n");
+  return 0;
+}
+
+static int shell_builtin_version(char **argv) {
+  printf("%s %s\n",utsname.sysname,utsname.version);
+  return 0;
 }
 
 static int shell_builtin_cd(char **argv) {
@@ -189,6 +210,7 @@ static char *ls_perm(mode_t mode) {
 
 static int shell_builtin_ls(char **argv) {
   char *path = argv[1]==NULL?".":argv[1];
+
   DIR *dir = opendir(path);
   if (dir!=NULL) {
     struct dirent *dirent;
@@ -200,7 +222,7 @@ static int shell_builtin_ls(char **argv) {
           struct passwd *owner;
           char *file;
           asprintf(&file,"%s/%s",path,dirent->d_name);
-          stat(file,&stbuf);
+          if (stat(file,&stbuf)==-1) printf("Error (%d): %s\n",errno,strerror(errno));
           owner = getpwuid(stbuf.st_uid);
           printf("%c%s %s % 5d %s\n",ls_filetype(stbuf.st_mode),ls_perm(stbuf.st_mode),owner!=NULL?owner->pw_name:"root",stbuf.st_size,dirent->d_name);
         }
@@ -211,28 +233,94 @@ static int shell_builtin_ls(char **argv) {
   else return 1;
 }
 
-static int shell_builtin_help(char **argv) {
-  printf("Built-in commands:\n"
-         " exit              Exit shell\n"
-         " cd DIR            Change working directory to DIR\n"
-         " ls [DIR]          List content of DIR\n"
-         " help              Show this help dialog\n"
-         " version           Show version\n");
+int shell_builtin_cat(char **argv) {
+  FILE *in;
+
+  if (argv[1]==NULL) in = stdin;
+  else {
+    in = fopen(argv[1],"r");
+    if (in==NULL) return 1;
+  }
+
+  while (!feof(in)) {
+    char buf[512];
+    size_t size = fread(buf,1,512,in);
+    fwrite(buf,1,size,stdout);
+  }
+
   return 0;
 }
 
-static int shell_builtin_version(char **argv) {
-  printf("%s %s\n",utsname.sysname,utsname.version);
+/*int shell_builtin_echo(char **argv) {
+  size_t i;
+  for (i=1;argv[i]!=NULL;i++) printf("%s%s",argv[i],argv[i+1]!=NULL?" ":"");
+  putchar('\n');
+  return 0;
+}*/
+
+int shell_builtin_test(char **argv) {
+  char buf[32] = {0};
+  ssize_t n;
+
+  printf("Creating FIFO...\n");
+  mknod("foobar",S_IFIFO|0755,0);
+
+  printf("Opening end A (w)...\n");
+  FILE *enda = fopen("foobar","w");
+  if (enda==NULL) return 1;
+
+  printf("Opening end B (r)...\n");
+  FILE *endb = fopen("foobar","r");
+  if (endb==NULL) return 1;
+
+  printf("Opening end C (r)...\n");
+  FILE *endc = fopen("foobar","r");
+  if (endc==NULL) return 1;
+
+  printf("Opening end D (w)...\n");
+  FILE *endd = fopen("foobar","w");
+  if (endd==NULL) return 1;
+
+  printf("Writing to A...\n");
+  n = fputs("Hello World\n",enda);
+  if (n==-1) return 1;
+  printf("Written %d bytes\n",n);
+
+  printf("Reading from B...\n");
+  if (fgets(buf,32,endb)==NULL) return 1;
+  printf("\"%s\"\n",buf);
+
+  printf("Reading from C...\n");
+  if (fgets(buf,32,endc)==NULL) return 1;
+  printf("\"%s\"\n",buf);
+
+  printf("Writing to D...\n");
+  n = fputs("Hallo Welt\n",endd);
+  if (n==-1) return 1;
+  printf("Written %d bytes\n",n);
+
+  printf("Reading from B...\n");
+  if (fgets(buf,32,endb)==NULL) return 1;
+  printf("\"%s\"\n",buf);
+
+  printf("Reading from C...\n");
+  if (fgets(buf,32,endc)==NULL) return 1;
+  printf("\"%s\"\n",buf);
+
   return 0;
 }
 
+/// @todo Sourcecode von utils/echo.c cat.c (und ls.c) hierher und main() in shell_builtin_* umbennen.
 static int shell_run_builtin(char **argv) {
   shell_builtin_cmd_t shell_builtin_cmds[] = {
-    { .cmd = "exit",    .func = shell_builtin_exit },
-    { .cmd = "cd",      .func = shell_builtin_cd },
-    { .cmd = "ls",      .func = shell_builtin_ls },
-    { .cmd = "help",    .func = shell_builtin_help },
-    { .cmd = "version", .func = shell_builtin_version }
+    { .cmd = "exit",     .func = shell_builtin_exit },
+    { .cmd = "help",     .func = shell_builtin_help },
+    { .cmd = "version",  .func = shell_builtin_version },
+    { .cmd = "cd",       .func = shell_builtin_cd },
+    { .cmd = "ls",       .func = shell_builtin_ls },
+    { .cmd = "cat",      .func = shell_builtin_cat },
+    //{ .cmd = "echo",     .func = shell_builtin_echo },
+    { .cmd = "test",     .func = shell_builtin_test }
   };
   size_t i;
 
@@ -251,29 +339,30 @@ static char *shell_find_path(char *cmd) {
 }
 
 static int shell_run_binary(char **argv,int background) {
-  shell_proc_t *proc = malloc(sizeof(shell_proc_t));
-  proc->path = shell_find_path(argv[0]);
-  proc->argv = argv;
-  proc->pid = execute(proc->path,argv,&(proc->stdin),&(proc->stdout),&(proc->stderr));
+  shell_job_t *job = malloc(sizeof(shell_job_t));
+  job->path = shell_find_path(argv[0]);
+  job->argv = argv;
+  job->stdin = TERMINAL_DEVICE;
+  job->stdout = TERMINAL_DEVICE;
+  job->stderr = TERMINAL_DEVICE;
+  job->pid = execute(job->path,argv,job->stdin,job->stdout,job->stderr);
 
-  if (proc->pid==-1) {
-    free(proc->path);
-    free(proc);
+  if (job->pid==-1) {
+    free(job->path);
+    free(job);
     return -1;
   }
 
   if (background) {
-
+    llist_push(joblist,job);
+    printf("+[%d]\n",job->pid);
   }
   else {
-    int status = 0;
-    waitpid(proc->pid,&status,0);
+    int status;
+    waitpid(job->pid,&status,0);
 
-    close(proc->stdin);
-    close(proc->stdout);
-    close(proc->stderr);
-    free(proc->path);
-    free(proc);
+    free(job->path);
+    free(job);
 
     if (status!=0) fprintf(stderr,"sh: %s: returned with %d\n",argv[0],status);
   }
@@ -290,20 +379,20 @@ static void shell_interactive() {
   while (status!=1) {
     size_t i;
     char **argv;
-    char *cmd = shell_get_command();
+    char *cmd;
 
-    if (cmd==NULL) break;
-    argv = shell_parse_cmd(cmd);
+    if ((cmd = shell_get_command())==NULL) break;
 
-    if (argv[0]!=NULL) {
+    if ((argv = shell_parse_cmd(cmd))!=NULL) {
       if ((status = shell_run_builtin(argv))==-1) {
         if (shell_run_binary(argv,0)==-1) fprintf(stderr,"sh: %s: command not found\n",argv[0]);
       }
+
+      for (i=0;argv[i];i++) free(argv[i]);
+      free(argv);
     }
 
     free(cmd);
-    for (i=0;argv[i];i++) free(argv[i]);
-    free(argv);
   }
 }
 
@@ -312,6 +401,7 @@ int main(int argc,char *argv[]) {
 
   FILE *terminal = fopen(TERMINAL_DEVICE,"r+");
   if (terminal==NULL) return 1;
+
   FILE *stdin_bak = stdin;
   FILE *stdout_bak = stdout;
   FILE *stderr_bak = stderr;

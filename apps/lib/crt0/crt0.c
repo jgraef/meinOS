@@ -25,11 +25,13 @@
 #include <misc.h>
 
 int main(int argc,char *argv[]);
-int _stdlib_init_pre();  ///< @see apps/lib/stdlibc/stdlib.c
-int _stdlib_init_post(); ///< @see apps/lib/stdlibc/stdlib.c
-int _libmeinos_init();   ///< @see apps/lib/libmeinos/misc.c
+void _stdlib_init_pre();  ///< @see apps/lib/stdlibc/stdlib.c
+void _stdlib_init_post(char *_stdin,char *_stdout,char *_stderr); ///< @see apps/lib/stdlibc/stdlib.c
+void _libmeinos_init();   ///< @see apps/lib/libmeinos/misc.c
 
-static void get_cmdline(struct process_data *data,char ***_argv,int *_argc) {
+static int var;
+
+static void get_cmdline(struct process_data *data,char ***_argv,int *_argc,char **_stdin,char **_stdout,char **_stderr) {
   int argc = data->argc;
   char **argv = malloc((argc+1)*sizeof(char*));
   size_t i = 0;
@@ -41,13 +43,43 @@ static void get_cmdline(struct process_data *data,char ***_argv,int *_argc) {
   }
   argv[j] = NULL;
 
+  if (data->has_stdin) {
+    if (_stdin!=NULL) *_stdin = data->stdio+i;
+    i += strlen(data->stdio+i)+1;
+  }
+  else if (_stdin!=NULL) *_stdin = NULL;
+
+  if (data->has_stdout) {
+    if (_stdout!=NULL) *_stdout = data->stdio+i;
+    i += strlen(data->stdio+i)+1;
+  }
+  else if (_stdout!=NULL) *_stdout = NULL;
+
+  if (data->has_stderr) {
+    if (_stderr!=NULL) *_stderr = data->stdio+i;
+    i += strlen(data->stdio+i)+1;
+  }
+  else if (_stderr!=NULL) *_stderr = NULL;
+
   *_argv = argv;
   *_argc = argc;
 }
 
+static void crt0_quit() {
+  if (_process_data!=NULL) {
+    // remove process data
+    shmdt(_process_data);
+    shmctl(var,IPC_RMID,NULL);
+  }
+}
+
 void _start() {
-  int var,argc,ret;
-  char **argv;
+  char *backup_argv[] = { NULL };
+  char **argv = backup_argv;
+  int argc = 0;
+  char *_stdin = NULL;
+  char *_stdout = NULL;
+  char *_stderr = NULL;
 
   // initialize libs
   _stdlib_init_pre();
@@ -57,20 +89,16 @@ void _start() {
   var = syscall_call(SYSCALL_PROC_GETVAR,1,getpid());
   if (var!=-1) {
     _process_data = shmat(var,NULL,0);
-    if (_process_data!=NULL) get_cmdline(_process_data,&argv,&argc);
+    if (_process_data!=NULL) get_cmdline(_process_data,&argv,&argc,&_stdin,&_stdout,&_stderr);
   }
+  else _process_data = NULL;
 
   // post initialize stdlibc
-  _stdlib_init_post();
+  _stdlib_init_post(_stdin,_stdout,_stderr);
+  atexit(crt0_quit);
 
-  // call main function
-  ret = main(argc,argv);
+  // call main function and exit
+  exit(main(argc,argv));
 
-  // remove process data
-  shmdt(_process_data);
-  shmctl(var,IPC_RMID,NULL);
-
-  // exit
-  exit(ret);
   while (1);
 }

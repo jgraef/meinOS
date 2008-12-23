@@ -84,6 +84,7 @@ static void *exe_load(pid_t pid,const char *file) {
   return elf_load(pid,file);
 }
 
+/// @todo address space of parent must be RO too!
 static pid_t proc_fork(void *child_entry) {
   // Create process
   char *name = getname(rpc_curpid);
@@ -139,6 +140,7 @@ static void proc_exec(const char *file,int var) {
 }
 
 static pid_t proc_execute(const char *file,int var) {
+
   // Create process
   char *_file = strdup(file);
   pid_t pid = proc_create(basename(_file),getuidbypid(rpc_curpid),getgidbypid(rpc_curpid),rpc_curpid);
@@ -174,21 +176,22 @@ int main(int argc,char *argv[]) {
       fprintf(stderr,"init: %s does not respond. initialization failed!\n",init_programs[i]);
       return 1;
     }
+
     if (strcmp(INIT_PROGRAM(i),"iso9660")==0) {
       // Initial mount of boot device
-      printf("init: Mounting boot filesystem: mount -t %s %s %s\n",BOOT_FS,BOOT_DEV,BOOT_MP);
       vfs_mount(BOOT_FS,BOOT_MP,BOOT_DEV,BOOT_RO);
       sleep(1);
     }
     else if (strcmp(INIT_PROGRAM(i),"ramdisk")==0) {
       // Initial mount of root device
-      printf("init: Mounting root filesystem: mount -t %s %s %s\n",ROOT_FS,ROOT_DEV,ROOT_MP);
       vfs_mount(ROOT_FS,ROOT_MP,ROOT_DEV,ROOT_RO);
       // create directories
       mkdir("/dev",0777);
       mkdir(BOOT_MP,0777);
       mkdir("/tmp",0777);
       mkdir("/mnt",0777);
+      mkdir("/var",0777);
+      mkdir("/var/log",0777);
       // create symlinks
       init_link("/bin");
       init_link("/etc");

@@ -27,12 +27,12 @@
 #include <stdint.h>
 
 // some variables/functions needed
-void stdio_init();             ///< @see stdio.h
-void env_init();               ///< @see env.c
-llist_t atexit_list;           ///< @see stdlib.c
-void _close_all_filehandles(); ///< @see files.c
-void _signal_init();           ///< @see signal.c
-void _fs_init();               ///< @see apps/lib/stdlibc/files.c
+void stdio_init();                                       ///< @see stdio.h
+void env_init();                                         ///< @see env.c
+llist_t atexit_list;                                     ///< @see stdlib.c
+void _close_all_filehandles();                           ///< @see files.c
+void _signal_init();                                     ///< @see signal.c
+void _fs_init(char *_stdin,char *_stdout,char *_stderr); ///< @see apps/lib/stdlibc/files.c
 
 void _stdlib_init_pre() {
   rand_seed = rand_seed%RAND_MAX;
@@ -40,10 +40,10 @@ void _stdlib_init_pre() {
   atexit_list = llist_create();
   _signal_init();
 }
-
-void _stdlib_init_post() {
+#include <stdio.h>
+void _stdlib_init_post(char *_stdin,char *_stdout,char *_stderr) {
   env_init();
-  _fs_init();
+  _fs_init(_stdin,_stdout,_stderr);
   stdio_init();
 }
 

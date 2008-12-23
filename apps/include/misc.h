@@ -37,15 +37,16 @@ int vfs_unmount(const char *fs,const char *mountpoint);
 
 // Execute
 struct process_data {
-  int shmid_stdin;
-  int shmid_stdout;
-  int shmid_stderr;
+  int has_stdin;
+  int has_stdout;
+  int has_stderr;
   int argc;
   char cmdline[0];
+  char stdio[0];
   //char enviroment[0];
 } *_process_data;
 
-pid_t execute(const char *path,char *argv[],int *stdin,int *stdout,int *stderr);
+pid_t execute(const char *path,char *argv[],const char *stdin,const char *stdout,const char *stderr);
 
 // Initialization
 /**

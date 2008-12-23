@@ -26,8 +26,6 @@
 #define INIT_D "/boot/etc/init.d/initd.conf"
 
 int main() {
-  printf("Starting initial programs...\n");
-
   FILE *fd = fopen(INIT_D,"r");
   if (fd!=NULL) {
     char buf[1024];
@@ -53,14 +51,12 @@ int main() {
         memcpy(argv[k],buf+j,i-j);
         argv[k][i-j] = 0;
         argv[k+1] = NULL;
-        printf("init: running: ");
-        for (i=0;argv[i];i++) printf("%s ",argv[i]);
-        putchar('\n');
+
+        /// @todo Maybe set stdin,stdout,stderr to /dev/console or some logfile
 #ifdef INIT_WAIT
         pid_t pid = execute(argv[0],argv,NULL,NULL,NULL);
         int status = 0;
         waitpid(pid,&status,0);
-        printf("init: %s %s\n",argv[0],status==0?"done":"failed");
 #else
         execute(argv[0],argv,NULL,NULL,NULL);
 #endif
@@ -70,11 +66,9 @@ int main() {
     }
     fclose(fd);
   }
-  else {
-    fprintf(stderr,"Could not load %s\n",INIT_D);
-    return 1;
-  }
+  else return 1;
 
+  /// @todo remove
   while (1);
   return 0;
 }

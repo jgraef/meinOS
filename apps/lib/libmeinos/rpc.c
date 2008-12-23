@@ -44,6 +44,7 @@ int rpc_vcall(const char *name,int ret_params,va_list args) {
   char synopsis[RPC_SYNOPSIS_MAXLEN];
   size_t paramsz,i;
   pack_t params;
+
   id = syscall_call(SYSCALL_RPC_GETINFO,8,-1,name,0,0,&paramsz,synopsis,RPC_SYNOPSIS_MAXLEN,0);
   if (id>=0) {
     // pack parameters
