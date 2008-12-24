@@ -161,6 +161,7 @@ int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,
 int proc_memunmap(pid_t proc_pid,void *virt);
 int proc_memfree(pid_t proc_pid,void *virt);
 void *proc_memget(pid_t proc_pid,void *virt,int *exists,int *writable,int *swappable,int *cow);
+size_t proc_mempagelist(pid_t proc_pid,void **list,size_t n);
 int proc_memalloc(pid_t proc_pid,void *virt,int writable,int swappable);
 int proc_system(pid_t proc_pid,int system);
 int proc_jump(pid_t proc_pid,void *dest);

@@ -94,35 +94,36 @@
 #define SYSCALL_PROC_MEMFREE        60 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_MEMFINDFREE    61 /* ONLY FOR SYSTEM */
 #define SYSCALL_PROC_MEMGET         62 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_SYSTEM         63 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_JUMP           64 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_CREATESTACK    65 /* ONLY FOR SYSTEM */
-#define SYSCALL_PROC_WAITPID        66
+#define SYSCALL_PROC_MEMPAGELIST    63 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_SYSTEM         64 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_JUMP           65 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_CREATESTACK    66 /* ONLY FOR SYSTEM */
+#define SYSCALL_PROC_WAITPID        67
 
 // I/O port
-#define SYSCALL_IO_REG              67 /* ONLY FOR ROOT */
-#define SYSCALL_IO_UNREG            68 /* ONLY FOR ROOT */
+#define SYSCALL_IO_REG              68 /* ONLY FOR ROOT */
+#define SYSCALL_IO_UNREG            69 /* ONLY FOR ROOT */
 
 // Timer
-#define SYSCALL_TIME_HANDLER        69
-#define SYSCALL_TIME_SLEEP          70
-#define SYSCALL_TIME_USLEEP         71
-#define SYSCALL_TIME_GETTICKS       72
+#define SYSCALL_TIME_HANDLER        70
+#define SYSCALL_TIME_SLEEP          71
+#define SYSCALL_TIME_USLEEP         72
+#define SYSCALL_TIME_GETTICKS       73
 
 // IRQ
-#define SYSCALL_IRQ_HANDLER         73 /* ONLY FOR ROOT */
-#define SYSCALL_IRQ_SLEEP           74 /* ONLY FOR ROOT */
+#define SYSCALL_IRQ_HANDLER         74 /* ONLY FOR ROOT */
+#define SYSCALL_IRQ_SLEEP           75 /* ONLY FOR ROOT */
 
 // Signal
-#define SYSCALL_SIG_SETUP           75
-#define SYSCALL_SIG_SEND            76
+#define SYSCALL_SIG_SETUP           76
+#define SYSCALL_SIG_SEND            77
 
 // Misc
-#define SYSCALL_MISC_BIOSINT        77 /* ONLY FOR ROOT */
+#define SYSCALL_MISC_BIOSINT        78 /* ONLY FOR ROOT */
 
 // Debug
 /// @deprecated Only for debugging
-#define SYSCALL_PUTSN               78
-#define SYSCALL_FOURTYTWO           79
+#define SYSCALL_PUTSN               79
+#define SYSCALL_FOURTYTWO           80
 
 #endif

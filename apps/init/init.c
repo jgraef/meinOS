@@ -84,27 +84,27 @@ static void *exe_load(pid_t pid,const char *file) {
   return elf_load(pid,file);
 }
 
-/// @todo address space of parent must be RO too!
-static pid_t proc_fork(void *child_entry) {
+/// @todo address space of parent must be RO too! (COW)
+static pid_t proc_fork(void *child_entry,int var) {
   // Create process
+
   char *name = getname(rpc_curpid);
   pid_t pid = proc_create(name,getuidbypid(rpc_curpid),getgidbypid(rpc_curpid),rpc_curpid);
-
-  printf("init: forking new process: %d (0x%x)\n",pid,child_entry);
+  proc_setvar(pid,var);
 
   if (pid!=-1) {
     // Copy userspace memory
-    void *i;
-    for (i=(void*)USERSPACE_ADDRESS;i<(void*)(USERSPACE_ADDRESS+USERSPACE_SIZE);i+=PAGE_SIZE) {
-      int exists,writable,swappable;
-      /// @todo make this _faster_
-      void *page = proc_memget(rpc_curpid,i,&exists,&writable,&swappable,NULL);
-      if (exists) {
-        if (page!=NULL) {
-          fprintf(stderr,"init: map 0x%x to 0x%x (COW)\n",i,page);
-          proc_memmap(pid,i,page,writable,swappable,1);
+    size_t num_pages,i;
+    void **pages = proc_mempagelist(rpc_curpid,&num_pages);
+
+    if (pages!=NULL) {
+      for (i=0;i<num_pages;i++) {
+        int exists,writable,swappable;
+        void *page = proc_memget(rpc_curpid,pages[i],&exists,&writable,&swappable,NULL);
+        if (exists) {
+          if (page!=NULL) proc_memmap(pid,pages[i],page,writable,swappable,1);
+          else proc_memalloc(pid,pages[i],writable,swappable);
         }
-        else proc_memalloc(pid,i,writable,swappable);
       }
     }
 
@@ -199,7 +199,7 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  rpc_func(proc_fork,"i",sizeof(int));
+  rpc_func(proc_fork,"ii",sizeof(int));
   rpc_func(proc_exec,"$i",PATH_MAX+sizeof(int));
   rpc_func(proc_execute,"$i",PATH_MAX+sizeof(int));
   rpc_func_create("computer_shutdown",init_computer_shutdown,"",0);

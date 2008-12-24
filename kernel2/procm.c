@@ -63,6 +63,7 @@ int proc_init() {
   if (syscall_create(SYSCALL_PROC_MEMUNMAP,proc_memunmap,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_MEMFREE,proc_memfree,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_MEMGET,proc_memget,6)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_MEMPAGELIST,proc_mempagelist,6)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_SYSTEM,proc_system,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_JUMP,proc_jump,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_CREATESTACK,proc_createstack,1)==-1) return -1;
@@ -721,6 +722,31 @@ void *proc_memget(pid_t proc_pid,void *virt,int *exists,int *writable,int *swapp
   }
   *exists = 0;
   return NULL;
+}
+
+/**
+ * Gets page list (Syscall)
+ *  @param proc_pid Process' PID
+ *  @param virt Virtual address to get information about
+ *  @return Number of pages in list
+ */
+size_t proc_mempagelist(pid_t proc_pid,void **list,size_t n) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      if (list==NULL || n==0) return llist_size(proc->addrspace->pages_loaded)+llist_size(proc->addrspace->pages_imaginary)+llist_size(proc->addrspace->pages_swapped);
+      else {
+        size_t i;
+        size_t j = 0;
+        void *addr;
+        for (i=0;(addr = llist_get(proc->addrspace->pages_loaded,i)) && j<n;i++) list[j++] = addr;
+        for (i=0;(addr = llist_get(proc->addrspace->pages_imaginary,i)) && j<n;i++) list[j++] = addr;
+        for (i=0;(addr = llist_get(proc->addrspace->pages_swapped,i)) && j<n;i++) list[j++] = addr;
+        return j;
+      }
+    }
+  }
+  return -1;
 }
 
 /**

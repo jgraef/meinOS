@@ -111,5 +111,6 @@ static __inline__ pid_t getchildbypid(pid_t pid,size_t i) {
 }
 
 char *getname(pid_t pid);
+void **proc_mempagelist(pid_t pid,size_t *_num_pages);
 
 #endif

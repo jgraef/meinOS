@@ -31,3 +31,13 @@ char *getname(pid_t pid) {
   syscall_call(SYSCALL_PROC_GETNAME,3,pid,buf,size);
   return buf;
 }
+
+void **proc_mempagelist(pid_t pid,size_t *_num_pages) {
+  ssize_t num_pages = syscall_call(SYSCALL_PROC_MEMPAGELIST,3,pid,NULL,0);
+  if (num_pages>0) {
+    void **pages = malloc(num_pages*sizeof(void*));
+    *_num_pages = syscall_call(SYSCALL_PROC_MEMPAGELIST,3,pid,pages,num_pages);
+    return pages;
+  }
+  else return NULL;
+}
