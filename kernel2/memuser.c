@@ -345,10 +345,6 @@ int memuser_alloc_at(addrspace_t *addrspace,void *addr,void *phys,int writable) 
   }
 
   pte_t pte = paging_getpte_pd(addr,addrspace->pagedir);
-/*  if (pte.exists) {
-kprintf("foo: 0x%x 0x%x 0x%x\n",addr,PAGE2ADDR(pte.page),phys);
-    return -1;
-  }*/
   memset(&pte,0,sizeof(pte));
   pte.exists = 1;
   pte.in_memory = 1;
@@ -358,6 +354,7 @@ kprintf("foo: 0x%x 0x%x 0x%x\n",addr,PAGE2ADDR(pte.page),phys);
   if (phys==NULL) phys = memphys_alloc();
   pte.page = ADDR2PAGE(phys);
   paging_setpte_pd(addr,pte,addrspace->pagedir);
+  llist_push(addrspace->pages_loaded,addr);
   return 0;
 }
 
