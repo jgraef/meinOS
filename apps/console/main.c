@@ -22,8 +22,6 @@
 
 #include "console.h"
 
-//#define DEBUG stderr
-
 /**
  * Initialize console driver
  */
@@ -40,19 +38,4 @@ int main() {
 
   devfs_mainloop();
   return 0;
-}
-
-/**
- * Prints debug message
- *  @param fmt Format
- *  @param ... Parameters
- */
-void debug(const char *fmt,...) {
-#ifdef DEBUG
-  va_list args;
-  va_start(args,fmt);
-  fprintf(DEBUG,"console: ");
-  vfprintf(DEBUG,fmt,args);
-  va_end(args);
-#endif
 }

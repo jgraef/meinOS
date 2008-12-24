@@ -24,7 +24,9 @@
 #include <wchar.h>
 #include <devfs.h>
 
-void debug(const char *fmt,...);
+/*#define DEBUG(...) do { printf("console: "); \
+    printf(__VA_ARGS__); } while (0);*/
+#define DEBUG(...)
 
 // keyboard.c
 int init_keyboard();
