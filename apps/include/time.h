@@ -19,7 +19,12 @@
 #ifndef _TIME_H_
 #define _TIME_H_
 
-#include <syscall.h>
+#include <sys/types.h>
+
+#define CLOCKS_PER_SEC  100 /// @see kernel2/cpu.h
+#define CLOCK_REALTIME  0   // ID of Realtime clock (?) ///< @see ?
+#define TIMER_ABSTIME   0   // Flag indicating time is absolute ///< @see ?
+#define CLOCK_MONOTONIC 1   // ID of monotonic clock (?) ///< @see ?
 
 struct tm {
   int tm_sec;   // Seconds [0..59]
@@ -41,13 +46,9 @@ struct itimerspec {
   struct timespec it_value;    // Timer expiration.
 };
 
-#define CLOCKS_PER_SEC  100 /// @see kernel2/cpu.h
-#define CLOCK_REALTIME  0   // ID of Realtime clock (?) ///< @see ?
-#define TIMER_ABSTIME   0   // Flag indicating time is absolute ///< @see ?
-#define CLOCK_MONOTONIC 1   // ID of monotonic clock (?) ///< @see ?
-
 time_t time(time_t *tloc);
 time_t mktime(struct tm *tm);
+char *asctime(const struct tm *timeptr);
 clock_t clock();
 
 #endif
