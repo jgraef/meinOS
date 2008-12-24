@@ -4,6 +4,8 @@ all:
 	cp -R include/* $(GCC_TOOLCHAIN)/include/
 
 	make -C lib/
+
+	make -C test/
 	make -C sh/
 	make -C com/
 	make -C devfs/
@@ -30,6 +32,8 @@ all:
 
 clean:
 	make -C lib/ clean
+
+	make -C test/ clean
 	make -C sh/ clean
 	make -C com/ clean
 	make -C devfs/ clean
