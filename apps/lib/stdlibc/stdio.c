@@ -28,6 +28,8 @@
 
 #define check_stream(stream) ((stream)!=NULL && (stream)->fh>=0)
 
+//#define _STDIO_DEBUG
+
 static FILE *create_stream(int fh,int oflag) {
   FILE *stream = malloc(sizeof(FILE));
   stream->fh = fh;

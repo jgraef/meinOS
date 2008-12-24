@@ -258,7 +258,7 @@ static __inline__ size_t fread(void *ptr,size_t size,size_t nitems,FILE *stream)
  *  @param str Additional error text (can be NULL)
  */
 static __inline__ void perror(const char *str) {
-  fprintf(stderr,"%s; %s\n",strerror(errno),str!=NULL?str:"");
+  fprintf(stderr,"%s: %s\n",str!=NULL?str:"",strerror(errno));
 }
 
 
