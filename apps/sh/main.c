@@ -81,19 +81,6 @@ static char *shell_get_command() {
 }
 
 /**
- * Converts a string with an octal number to an integer
- *  @param string String holding octal number
- *  @return String as integer
- */
-static int octal2num(char *str) {
-  char buf[4];
-  memcpy(buf,str,3);
-  buf[3] = 0;
-  int num = strtoul(buf,NULL,8);
-  return num;
-}
-
-/**
  * Parses an command line argument
  *  @param arg Command line argument
  *  @param len Length of argument
@@ -115,10 +102,19 @@ static char *shell_parse_arg(char *arg,size_t len) {
       else if (arg[i]=='r') new[j] = '\r';  // carriage return
       else if (arg[i]=='t') new[j] = '\t';  // horizontal tab
       else if (arg[i]=='v') new[j] = '\v';  // vertical tab
-      else if (arg[i]=='0' && arg[i+1]!=0 && arg[i+2]!=0 && arg[i+3]!=0) {
-                                            // character in octal
-        new[j] = octal2num(arg+i+1);
+      else if (arg[i]=='0') {              // character in octal
+        char *endp;
+        int num = strtoul(arg+i,&endp,8);
+        if (errno==0) {
+          new[j] = num;
+          i += (endp-(arg+i))-1;
+        }
+        else {
+          new[j] = arg[i];
+          perror("strtoul");
+        }
       }
+      else new[j] = '\\';
     }
     else new[j] = arg[i];
   }
@@ -133,12 +129,13 @@ static char *shell_parse_arg(char *arg,size_t len) {
  *  @param cmd Command line string
  *  @return Argument vector
  */
-static char **shell_parse_cmd(char *cmd) {
+static char **shell_parse_cmd(char *cmd,int *background) {
   int quote = 0;
   char *cur = cmd;
   char *next;
   char **argv = NULL;
   int argc = 0;
+  *background = 0;
 
   do {
     // skip spaces
@@ -159,8 +156,15 @@ static char **shell_parse_cmd(char *cmd) {
   } while (*next!=0);
 
   if (argc>0) {
-    argv = realloc(argv,(argc+1)*sizeof(char*));
-    argv[argc] = NULL;
+    if (strcmp(argv[argc-1],"&")==0) {
+      *background = 1;
+      argc--;
+      argv[argc] = NULL;
+    }
+    else {
+      argv = realloc(argv,(argc+1)*sizeof(char*));
+      argv[argc] = NULL;
+    }
     return argv;
   }
   else return NULL;
@@ -233,94 +237,22 @@ static int shell_builtin_ls(char **argv) {
   else return 1;
 }
 
-int shell_builtin_cat(char **argv) {
-  FILE *in;
-
-  if (argv[1]==NULL) in = stdin;
-  else {
-    in = fopen(argv[1],"r");
-    if (in==NULL) return 1;
-  }
-
-  while (!feof(in)) {
-    char buf[512];
-    size_t size = fread(buf,1,512,in);
-    fwrite(buf,1,size,stdout);
-  }
-
+static int shell_builtin_pwd(char **argv) {
+  char *cwd = getcwd(NULL,0);
+  puts(cwd);
+  free(cwd);
   return 0;
 }
 
-/*int shell_builtin_echo(char **argv) {
-  size_t i;
-  for (i=1;argv[i]!=NULL;i++) printf("%s%s",argv[i],argv[i+1]!=NULL?" ":"");
-  putchar('\n');
-  return 0;
-}*/
-
-int shell_builtin_test(char **argv) {
-  char buf[32] = {0};
-  ssize_t n;
-
-  printf("Creating FIFO...\n");
-  mknod("foobar",S_IFIFO|0755,0);
-
-  printf("Opening end A (w)...\n");
-  FILE *enda = fopen("foobar","w");
-  if (enda==NULL) return 1;
-
-  printf("Opening end B (r)...\n");
-  FILE *endb = fopen("foobar","r");
-  if (endb==NULL) return 1;
-
-  printf("Opening end C (r)...\n");
-  FILE *endc = fopen("foobar","r");
-  if (endc==NULL) return 1;
-
-  printf("Opening end D (w)...\n");
-  FILE *endd = fopen("foobar","w");
-  if (endd==NULL) return 1;
-
-  printf("Writing to A...\n");
-  n = fputs("Hello World\n",enda);
-  if (n==-1) return 1;
-  printf("Written %d bytes\n",n);
-
-  printf("Reading from B...\n");
-  if (fgets(buf,32,endb)==NULL) return 1;
-  printf("\"%s\"\n",buf);
-
-  printf("Reading from C...\n");
-  if (fgets(buf,32,endc)==NULL) return 1;
-  printf("\"%s\"\n",buf);
-
-  printf("Writing to D...\n");
-  n = fputs("Hallo Welt\n",endd);
-  if (n==-1) return 1;
-  printf("Written %d bytes\n",n);
-
-  printf("Reading from B...\n");
-  if (fgets(buf,32,endb)==NULL) return 1;
-  printf("\"%s\"\n",buf);
-
-  printf("Reading from C...\n");
-  if (fgets(buf,32,endc)==NULL) return 1;
-  printf("\"%s\"\n",buf);
-
-  return 0;
-}
-
-/// @todo Sourcecode von utils/echo.c cat.c (und ls.c) hierher und main() in shell_builtin_* umbennen.
 static int shell_run_builtin(char **argv) {
   shell_builtin_cmd_t shell_builtin_cmds[] = {
     { .cmd = "exit",     .func = shell_builtin_exit },
+    { .cmd = "logout",   .func = shell_builtin_exit },
     { .cmd = "help",     .func = shell_builtin_help },
     { .cmd = "version",  .func = shell_builtin_version },
     { .cmd = "cd",       .func = shell_builtin_cd },
     { .cmd = "ls",       .func = shell_builtin_ls },
-    { .cmd = "cat",      .func = shell_builtin_cat },
-    //{ .cmd = "echo",     .func = shell_builtin_echo },
-    { .cmd = "test",     .func = shell_builtin_test }
+    { .cmd = "pwd",      .func = shell_builtin_pwd }
   };
   size_t i;
 
@@ -380,12 +312,13 @@ static void shell_interactive() {
     size_t i;
     char **argv;
     char *cmd;
+    int background = 0;
 
     if ((cmd = shell_get_command())==NULL) break;
 
-    if ((argv = shell_parse_cmd(cmd))!=NULL) {
+    if ((argv = shell_parse_cmd(cmd,&background))!=NULL) {
       if ((status = shell_run_builtin(argv))==-1) {
-        if (shell_run_binary(argv,0)==-1) fprintf(stderr,"sh: %s: command not found\n",argv[0]);
+        if (shell_run_binary(argv,background)==-1) fprintf(stderr,"sh: %s: command not found\n",argv[0]);
       }
 
       for (i=0;argv[i];i++) free(argv[i]);

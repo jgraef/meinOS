@@ -23,7 +23,7 @@
 static void usage(char *cmd,int ret) {
   FILE *stream = ret==0?stdout:stderr;
   fprintf(stream,"Usage: %s [OPTION]... [STRING]...\n",cmd);
-  fprintf(stream,"Print effective UID\n");
+  fprintf(stream,"Repeat a string\n");
   fprintf(stream,"\t-h\tshow this help message\n");
   fprintf(stream,"\t-v\toutput version information and exit\n");
   exit(ret);

@@ -34,19 +34,6 @@ static void usage(char *prog,int ret) {
   exit(ret);
 }
 
-/**
- * Converts a string with an octal number to an integer
- *  @param string String holding octal number
- *  @return String as integer
- */
-int octal2num(char *str) {
-  char buf[4];
-  memcpy(buf,str,3);
-  buf[3] = 0;
-  int num = strtoul(buf,NULL,8);
-  return num;
-}
-
 char *escape_string(char *str,int *newline) {
   char *new = malloc(strlen(str)+1);
   size_t i,j;
@@ -62,10 +49,19 @@ char *escape_string(char *str,int *newline) {
       else if (str[i]=='r') new[j] = '\r'; // carriage return
       else if (str[i]=='t') new[j] = '\t'; // horizontal tab
       else if (str[i]=='v') new[j] = '\v'; // vertical tab
-      else if (str[i]=='0' && str[i+1]!=0 && str[i+2]!=0 && str[i+3]!=0) {
-                                           // character in octal
-        new[j] = octal2num(str+i+1);
+      else if (str[i]=='0') {              // character in octal
+        char *endp;
+        int num = strtoul(str+i,&endp,8);
+        if (errno==0) {
+          new[j] = num;
+          i += (endp-(str+i))-1;
+        }
+        else {
+          new[j] = str[i];
+          perror("strtoul");
+        }
       }
+      else new[j] = '\\';
     }
     else new[j] = str[i];
   }
