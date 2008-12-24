@@ -511,7 +511,6 @@ void proc_exit(int ret) {
  * Aborts process (Syscall)
  */
 void proc_abort() {
-  kprintf("Program aborted: %s #%d\n",proc_current->name,proc_current->pid);
   proc_exit(1);
 }
 
