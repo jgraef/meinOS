@@ -33,8 +33,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#define TERMINAL_DEVICE "/dev/console"
-
 typedef struct {
   const char *cmd;
   int (*func)(char **argv);
@@ -49,9 +47,10 @@ typedef struct {
   char *stderr;
 } shell_job_t;
 
-struct utsname utsname;
-struct passwd *passwd;
-llist_t joblist;
+static struct utsname utsname;
+static struct passwd *passwd;
+static llist_t joblist;
+static char *terminal_device;
 
 static void usage(char *cmd,int err) {
   FILE *out = err?stderr:stdout;
@@ -244,6 +243,11 @@ static int shell_builtin_pwd(char **argv) {
   return 0;
 }
 
+static int shell_builtin_cls(char **argv) {
+  fputs("\x1B[2J",stdout);
+  return 0;
+}
+
 static int shell_run_builtin(char **argv) {
   shell_builtin_cmd_t shell_builtin_cmds[] = {
     { .cmd = "exit",     .func = shell_builtin_exit },
@@ -252,7 +256,8 @@ static int shell_run_builtin(char **argv) {
     { .cmd = "version",  .func = shell_builtin_version },
     { .cmd = "cd",       .func = shell_builtin_cd },
     { .cmd = "ls",       .func = shell_builtin_ls },
-    { .cmd = "pwd",      .func = shell_builtin_pwd }
+    { .cmd = "pwd",      .func = shell_builtin_pwd },
+    { .cmd = "cls",      .func = shell_builtin_cls }
   };
   size_t i;
 
@@ -274,9 +279,9 @@ static int shell_run_binary(char **argv,int background) {
   shell_job_t *job = malloc(sizeof(shell_job_t));
   job->path = shell_find_path(argv[0]);
   job->argv = argv;
-  job->stdin = TERMINAL_DEVICE;
-  job->stdout = TERMINAL_DEVICE;
-  job->stderr = TERMINAL_DEVICE;
+  job->stdin = terminal_device;
+  job->stdout = terminal_device;
+  job->stderr = terminal_device;
   job->pid = execute(job->path,argv,job->stdin,job->stdout,job->stderr);
 
   if (job->pid==-1) {
@@ -332,18 +337,16 @@ static void shell_interactive() {
 int main(int argc,char *argv[]) {
   int c;
 
-  FILE *terminal = fopen(TERMINAL_DEVICE,"r+");
-  if (terminal==NULL) return 1;
+  terminal_device = "/dev/console";
 
-  FILE *stdin_bak = stdin;
-  FILE *stdout_bak = stdout;
-  FILE *stderr_bak = stderr;
-  stdin = terminal;
-  stdout = terminal;
-  stderr = terminal;
-
-  while ((c = getopt(argc,argv,":hv"))!=-1) {
+  while ((c = getopt(argc,argv,":hvw:t:"))!=-1) {
     switch(c) {
+      case 'w':
+        chdir(optarg);
+        break;
+      case 't':
+        terminal_device = optarg;
+        break;
       case 'h':
         usage(argv[0],0);
         break;
@@ -357,6 +360,15 @@ int main(int argc,char *argv[]) {
         break;
     }
   }
+
+  FILE *terminal = fopen(terminal_device,"r+");
+  if (terminal==NULL) return 1;
+  FILE *stdin_bak = stdin;
+  FILE *stdout_bak = stdout;
+  FILE *stderr_bak = stderr;
+  stdin = terminal;
+  stdout = terminal;
+  stderr = terminal;
 
   uname(&utsname);
   passwd = getpwuid(getuid());

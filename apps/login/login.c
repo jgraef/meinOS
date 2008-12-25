@@ -29,8 +29,8 @@
 
 FILE *console;
 
-int init_input() {
-  console = fopen("/dev/console","rw");
+int init_input(const char *terminal) {
+  console = fopen(terminal,"rw");
   return console!=NULL?0:-1;
 }
 
@@ -72,14 +72,16 @@ char *login(char *wdir) {
 }
 #endif
 
-void shell_run(char *shell,char *wdir) {
-  char *argv[] = {wdir,NULL};
+void shell_run(char *shell,char *wdir,char *terminal) {
+  char *argv[] = {shell,"-w",wdir,"-t",terminal,NULL};
   pid_t pid = execute(shell,argv,NULL,NULL,NULL);
   waitpid(pid,NULL,0);
 }
 
 int main(int argc,char *argv[]) {
-  if (init_input()==-1) abort();
+  char *terminal = argc>1?argv[1]:"/dev/console";
+
+  if (init_input(terminal)==-1) abort();
 #ifdef LOGIN
   while (1) {
     char *wdir;
@@ -87,7 +89,7 @@ int main(int argc,char *argv[]) {
     shell_run(shell,wdir,user);
   }
 #else
-  shell_run(DEFAULT_SHELL,DEFAULT_WDIR);
+  shell_run(DEFAULT_SHELL,DEFAULT_WDIR,terminal);
 #endif
 while (1);
   computer_shutdown();
