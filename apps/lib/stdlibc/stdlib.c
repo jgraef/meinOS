@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <llist.h>
 #include <syscall.h>
+#include <time.h>
 #include <stdint.h>
 
 // some variables/functions needed
@@ -45,6 +46,7 @@ void _stdlib_init_post(char *_stdin,char *_stdout,char *_stderr) {
   env_init();
   _fs_init(_stdin,_stdout,_stderr);
   stdio_init();
+  clock(); // to initialize it
 }
 
 /**
