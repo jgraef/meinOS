@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <llist.h>
 
 #include <readline/readline.h>
@@ -64,7 +65,8 @@ static char keyboard_read_char(void)
 {
     char c = 0;
 
-    while ((c = fgetc(stdin))<1);
+    /// @todo remove. use blocking read instead
+    while ((c = fgetc(stdin))<1) sleep(0);
 
     return c;
 }
