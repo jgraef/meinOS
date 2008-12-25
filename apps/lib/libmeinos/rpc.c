@@ -162,9 +162,11 @@ int rpc_poll(int id) {
 
       if (syscall_call(SYSCALL_RPC_RETURN,3,id,ret,pack_data(params))==0) {
         errno = 0;
+        pack_free(params);
         return 0;
       }
     }
+    pack_free(params);
   }
   errno = EINVAL;
   return -1;
