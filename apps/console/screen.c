@@ -115,7 +115,6 @@ static int printchar(char chr) {
     escape_buf[(escape++)-1] = chr; // put byte in escape buffer
 
     if (isalpha(chr)) { // escape code finished
-      escape = 0;
       if (escape==1 && escape_buf[0]=='c') default_settings();           // reset device
       else if (escape==3 && memcmp(escape_buf,"[7h",3)==0) settings.linewrap = 1; // enable linewrap
       else if (escape==3 && memcmp(escape_buf,"[7l",3)==0) settings.linewrap = 0; // disable linewrap
@@ -176,6 +175,7 @@ static int printchar(char chr) {
       else if (memcmp(escape_buf,"[2J",3)==0) {
         clearscreen();
       }
+      escape = 0;
     }
   }
   else if (chr=='\a') bell(settings.bell_freq,settings.bell_dur);
