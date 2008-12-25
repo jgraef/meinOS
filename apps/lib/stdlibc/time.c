@@ -22,8 +22,6 @@
 #include <syscall.h>
 #include <stdio.h>
 
-static clock_t start_clock = -1;
-
 /**
  * Converts date and time to a string
  *  @param timeptr Date and time
@@ -65,6 +63,5 @@ time_t time(time_t *tloc) {
  *  @return Ticks
  */
 clock_t clock() {
-  if (start_clock==-1) start_clock = syscall_call(SYSCALL_TIME_GETTICKS,0);
-  return syscall_call(SYSCALL_TIME_GETTICKS,0)-start_clock;
+  return syscall_call(SYSCALL_TIME_GETTICKS,0);
 }

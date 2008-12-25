@@ -140,7 +140,7 @@ static struct fslist_item *fsbypath(char *path,int parent) {
   if (fs==NULL) {
     fs = malloc(sizeof(struct fslist_item));
     char *mountpoint = strdup(path);
-    fs->id = rpc_call("vfs_getfsid",2,path,parent);
+    fs->id = rpc_call("vfs_getfsid",1,path,parent);
     if (fs->id<0) {
       free(mountpoint);
       errno = -fs->id;

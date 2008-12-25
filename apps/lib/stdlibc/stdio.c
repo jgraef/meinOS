@@ -295,6 +295,7 @@ char *fgets(char *s,int n,FILE *stream) {
  *  @param size How many bytes to read
  *  @param stream Stream to read from
  *  @return How many elements read
+ *  @todo Add blocking read with sleep(0) til all data is read.
  */
 size_t _fread(void *ptr,size_t size,FILE *stream) {
   if (check_stream(stream)) {
