@@ -65,10 +65,7 @@ int main() {
       }
     }
     fclose(fd);
+    return 0;
   }
   else return 1;
-
-  /// @todo remove
-  while (1);
-  return 0;
 }

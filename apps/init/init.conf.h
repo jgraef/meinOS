@@ -1,6 +1,8 @@
 #ifndef _INIT_CONF_H_
 #define _INIT_CONF_H_
 
+/// @todo generate this header from some config file in /etc/init.d
+
 // Default mount parameters for root
 #ifndef ROOT_FS
   #define ROOT_FS "ramdisk"
@@ -45,6 +47,7 @@ static const char *init_programs[] = {
   "console",
   NULL
 };
+
 #define INIT_PROGRAM(n) init_programs[n]
 #define INIT2_PROGRAM   "init2"
 
