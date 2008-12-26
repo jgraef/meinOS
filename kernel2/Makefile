@@ -9,6 +9,7 @@ OBJFILES = aaacrt0.o \
            interrupt.o \
            ioport.o \
            ipc.o \
+           isr.o \
            kprint.o \
            lapic.o \
            main.o \
@@ -61,7 +62,7 @@ ioport.o: ioport.c
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
 ipc.o: ipc.c
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
-isr.0: isr.asm
+isr.o: isr.asm
 	$(KERNEL_ASM) -f elf -o $@ $^
 kprint.o: kprint.c
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
