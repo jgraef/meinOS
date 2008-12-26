@@ -37,13 +37,12 @@
 // Drivers to initialize
 static const char *init_programs[] = {
   "vfs",
-  "ramdisk", ///< @todo move this to /etc/init.d
   "devfs",
   "dma",
   "ata",
   "cdrom",
   "iso9660",
-  "pci",
+  "ramdisk",
   "console",
   NULL
 };

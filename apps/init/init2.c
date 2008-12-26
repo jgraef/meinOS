@@ -53,13 +53,7 @@ int main() {
         argv[k+1] = NULL;
 
         /// @todo Maybe set stdin,stdout,stderr to /dev/console or some logfile
-#ifdef INIT_WAIT
-        pid_t pid = execute(argv[0],argv,NULL,NULL,NULL);
-        int status = 0;
-        waitpid(pid,&status,0);
-#else
         execute(argv[0],argv,NULL,NULL,NULL);
-#endif
         for (i=0;argv[i];i++) free(argv[i]);
         free(argv);
       }

@@ -85,12 +85,11 @@ static void *exe_load(pid_t pid,const char *file) {
 }
 
 /// @todo address space of parent must be RO too! (COW)
-static pid_t proc_fork(void *child_entry,int var) {
+static pid_t proc_fork(void *child_entry) {
   // Create process
 
   char *name = getname(rpc_curpid);
   pid_t pid = proc_create(name,getuidbypid(rpc_curpid),getgidbypid(rpc_curpid),rpc_curpid);
-  proc_setvar(pid,var);
 
   if (pid!=-1) {
     // Copy userspace memory
@@ -99,12 +98,10 @@ static pid_t proc_fork(void *child_entry,int var) {
 
     if (pages!=NULL) {
       for (i=0;i<num_pages;i++) {
-        int exists,writable,swappable;
-        void *page = proc_memget(rpc_curpid,pages[i],&exists,&writable,&swappable,NULL);
-        if (exists) {
-          if (page!=NULL) proc_memmap(pid,pages[i],page,writable,swappable,1);
-          else proc_memalloc(pid,pages[i],writable,swappable);
-        }
+        int writable,swappable;
+        void *page = proc_memget(rpc_curpid,pages[i],NULL,&writable,&swappable,NULL);
+        if (page!=NULL) proc_memmap(pid,pages[i],page,writable,swappable,1);
+        else proc_memalloc(pid,pages[i],writable,swappable);
       }
     }
 
@@ -171,12 +168,14 @@ int main(int argc,char *argv[]) {
 
   init_init();
   for (i=0;INIT_PROGRAM(i);i++) {
+    //dbgmsg("init: starting %s...",INIT_PROGRAM(i));
     init_run(INIT_PROGRAM(i));
 
     if (!init_wait(INIT_PROGRAM(i))) {
-      fprintf(stderr,"init: %s does not respond. initialization failed!\n",init_programs[i]);
+      dbgmsg("init: %s does not respond. initialization failed!\n",init_programs[i]);
       return 1;
     }
+    //dbgmsg("done\n");
 
     if (strcmp(INIT_PROGRAM(i),"iso9660")==0) {
       // Initial mount of boot device
@@ -200,7 +199,7 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  rpc_func(proc_fork,"ii",sizeof(int));
+  rpc_func(proc_fork,"i",sizeof(int));
   rpc_func(proc_exec,"$i",PATH_MAX+sizeof(int));
   rpc_func(proc_execute,"$i",PATH_MAX+sizeof(int));
   rpc_func_create("computer_shutdown",init_computer_shutdown,"",0);
