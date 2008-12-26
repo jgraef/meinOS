@@ -77,15 +77,14 @@ int getlid_fsid(int fsid) {
 int vfs_regfs(char *name,char *mountpoint) {
   struct fslist_item *new = malloc(sizeof(struct fslist_item));
   new->fsid = getnew_fsid();
-  if (mountpoint[strlen(mountpoint)-1]=='/') mountpoint[strlen(mountpoint)-1] = 0;
+  if (new->mountpoint[strlen(new->mountpoint)-1]=='/' && strlen(new->mountpoint)>1) new->mountpoint[strlen(new->mountpoint)-1] = 0;
   new->name = strdup(name);
   new->mountpoint = strdup(mountpoint);
   new->mp_path = path_parse(new->mountpoint);
-  if (new->mountpoint[strlen(new->mountpoint)-1]=='/' && strlen(new->mountpoint)>1) new->mountpoint[strlen(new->mountpoint)-1] = 0;
   new->pid = rpc_curpid;
   llist_push(fslist,new);
   debug("New FS: %s %s (id=%d; pid=%d%s)\n",name,mountpoint,new->fsid,new->pid,mountpoint[0]==0?", rootfs":"");
-  if (mountpoint[0]==0) root_fs = new;
+  if (strcmp(mountpoint,"/")==0) root_fs = new;
   return new->fsid;
 }
 
