@@ -39,7 +39,7 @@ static int elf_validate(elf_header_t *header) {
   if (header->ident[EI_VERSION]!=header->version) return 0;
   return 1;
 }
-#include <stdio.h>
+
 static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t file_addr,size_t file_size,int writable) {
   if (mem_addr<(void*)USERSPACE_ADDRESS) return -1;
   size_t i;

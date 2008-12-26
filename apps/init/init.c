@@ -172,6 +172,7 @@ int main(int argc,char *argv[]) {
   init_init();
   for (i=0;INIT_PROGRAM(i);i++) {
     init_run(INIT_PROGRAM(i));
+
     if (!init_wait(INIT_PROGRAM(i))) {
       fprintf(stderr,"init: %s does not respond. initialization failed!\n",init_programs[i]);
       return 1;
