@@ -27,5 +27,5 @@ pid_t _fork_child_entry();
 pid_t fork() {
   asm("mov %%ebp,%0":"=r"(_fork_stack):);
   //printf("test: stack: 0x%x\n",_fork_stack);
-  return rpc_call("proc_fork",0,_fork_child_entry,-1);
+  return rpc_call("proc_fork",0,_fork_child_entry);
 }
