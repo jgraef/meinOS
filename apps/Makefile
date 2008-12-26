@@ -5,6 +5,7 @@ all:
 
 	make -C lib/
 
+	make -C beep/
 	make -C test/
 	make -C sh/
 	make -C com/
@@ -33,6 +34,7 @@ all:
 clean:
 	make -C lib/ clean
 
+	make -C beep/ clean
 	make -C test/ clean
 	make -C sh/ clean
 	make -C com/ clean

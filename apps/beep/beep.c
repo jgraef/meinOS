@@ -16,8 +16,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <sys/types.h>
+#include <stdint.h>
 #include <ioport.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 /**
  * Turns bell off
@@ -30,11 +34,11 @@ void stopbeep() {
  * Rings the bell
  *  @param freq Frequency to use
  */
-void startbeep(u16 freq) {
+void startbeep(uint16_t freq) {
   freq = 1193180/freq;
   outb(0x43,0xB6);
-  outb(0x42,(u8)freq);
-  outb(0x42,(u8)(freq>>8));
+  outb(0x42,(uint8_t)freq);
+  outb(0x42,(uint8_t)(freq>>8));
   outb(0x61,inb(0x61)|3);
 }
 
@@ -42,10 +46,12 @@ void startbeep(u16 freq) {
  * Prints usage
  *  @param cmd Command used to run origran
  */
-void usage(char *cmd) {
-  printf("%s [options]\n",cmd)
-  printf("  -f Frequency in milliseconds\n");
-  printf("  -d Duration\n");
+static void usage(char *prog,int ret) {
+  FILE *stream = ret==0?stdout:stderr;
+  fprintf(stream,"Usage: %s [OPTION]...\n",prog);
+  fprintf(stream,"\t-f FREQUENCY Frequency in milliseconds\n");
+  fprintf(stream,"\t-d DURATION  Duration\n");
+  exit(ret);
 }
 
 /**
@@ -54,26 +60,38 @@ void usage(char *cmd) {
  *  @param argv Parameters
  */
 int main(int argc,char *argv[]) {
+  int c;
   int freq = 470;
   int dur = 250;
 
-  for (i=1;i<argc;i++) {
-    if (strcmp(argv[i],"-f")==0) {
-      i++;
-      if (i==argc) usage(argv[0]);
-      freq = atoi(argv[i]);
-    }
-    if (strcmp(argv[i],"-d")==0) {
-      i++;
-      if (i==argc) usage(argv[0]);
-      dur = atoi(argv[i]);
+    while ((c = getopt(argc,argv,":fdhv"))!=-1) {
+    switch(c) {
+      case 'f':
+        freq = atoi(optarg);
+        break;
+      case 'd':
+        dur = atoi(optarg);
+        break;
+      case 'h':
+        usage(argv[0],0);
+        break;
+      case 'v':
+        printf("beep v0.1\n(c) 2008 Janosch Graef\n");
+        return 0;
+        break;
+      case '?':
+        fprintf(stderr,"Unrecognized option: -%c\n", optopt);
+        usage(argv[0],1);
+        break;
     }
   }
 
   ioport_reg(0x42);
   ioport_reg(0x43);
   ioport_reg(0x61);
-  startbeep((u16)freq);
+  startbeep((uint16_t)freq);
   usleep(dur*1000);
   stopbeep();
+
+  return 0;
 }
