@@ -62,15 +62,6 @@ static int fuse_fill_dir(void *vdbuf,const char *name,const struct stat *stbuf,o
   return 0;
 }
 
-#define fs_func_create(func,synopsis,bufsize) _fs_func_create(__STRING(func),func,synopsis,bufsize,pid)
-static int _fs_func_create(char *name,void *func,char *synopsis,size_t bufsize,pid_t pid) {
-  char *rpc;
-  asprintf(&rpc,"%s_%x",name,pid);
-  int ret = rpc_func_create(rpc,func,synopsis,bufsize);
-  free(rpc);
-  return ret;
-}
-
 static struct fuse *fuse_find(int fsid) {
   size_t i;
   struct fuse *fuse;
@@ -522,33 +513,32 @@ static int fs_utime(int fsid,int shmid) {
 }
 
 static void fuse_init() {
-  pid_t pid = getpid();
   fslist = llist_create();
   fs_file_lastfh = 0;
-  fs_func_create(fs_open,"iii",sizeof(int)*3);
-  fs_func_create(fs_close,"ii",sizeof(int)*2);
-  fs_func_create(fs_read,"iii",sizeof(int)*3);
-  fs_func_create(fs_write,"iii",sizeof(int)*3);
-  fs_func_create(fs_seek,"iiii",sizeof(int)*4);
-  fs_func_create(fs_fstat,"ii",sizeof(int)*2);
-  fs_func_create(fs_unlink,"i$",sizeof(int)+PATH_MAX);
-  fs_func_create(fs_rmdir,"i$",sizeof(int)+PATH_MAX);
-  fs_func_create(fs_rename,"i$$",sizeof(int)+PATH_MAX*2);
-  fs_func_create(fs_ftruncate,"iii",sizeof(int)*3);
-  fs_func_create(fs_opendir,"ii",sizeof(int)*2);
-  fs_func_create(fs_readdir,"ii",sizeof(int)*2);
-  fs_func_create(fs_closedir,"ii",sizeof(int)*2);
-  fs_func_create(fs_seekdir,"iii",sizeof(int)*3);
-  fs_func_create(fs_statvfs,"ii",sizeof(int));
-  fs_func_create(fs_readlink,"iii",sizeof(int)*3);
-  fs_func_create(fs_symlink,"i$$",sizeof(int)+PATH_MAX*2);
-  fs_func_create(fs_link,"i$$",sizeof(int)+PATH_MAX*2);
-  fs_func_create(fs_mknod,"i$ii",sizeof(int)*3+PATH_MAX);
-  fs_func_create(fs_dup,"iii",sizeof(int)*3);
-  fs_func_create(fs_chown,"i$ii",sizeof(int)*3+PATH_MAX);
-  fs_func_create(fs_chmod,"i$i",sizeof(int)*2+PATH_MAX);
-  fs_func_create(fs_access,"i$i",sizeof(int)*2+PATH_MAX);
-  fs_func_create(fs_utime,"ii",sizeof(int)*2);
+  rpc_func(fs_open,"iii",sizeof(int)*3);
+  rpc_func(fs_close,"ii",sizeof(int)*2);
+  rpc_func(fs_read,"iii",sizeof(int)*3);
+  rpc_func(fs_write,"iii",sizeof(int)*3);
+  rpc_func(fs_seek,"iiii",sizeof(int)*4);
+  rpc_func(fs_fstat,"ii",sizeof(int)*2);
+  rpc_func(fs_unlink,"i$",sizeof(int)+PATH_MAX);
+  rpc_func(fs_rmdir,"i$",sizeof(int)+PATH_MAX);
+  rpc_func(fs_rename,"i$$",sizeof(int)+PATH_MAX*2);
+  rpc_func(fs_ftruncate,"iii",sizeof(int)*3);
+  rpc_func(fs_opendir,"ii",sizeof(int)*2);
+  rpc_func(fs_readdir,"ii",sizeof(int)*2);
+  rpc_func(fs_closedir,"ii",sizeof(int)*2);
+  rpc_func(fs_seekdir,"iii",sizeof(int)*3);
+  rpc_func(fs_statvfs,"ii",sizeof(int));
+  rpc_func(fs_readlink,"iii",sizeof(int)*3);
+  rpc_func(fs_symlink,"i$$",sizeof(int)+PATH_MAX*2);
+  rpc_func(fs_link,"i$$",sizeof(int)+PATH_MAX*2);
+  rpc_func(fs_mknod,"i$ii",sizeof(int)*3+PATH_MAX);
+  rpc_func(fs_dup,"iii",sizeof(int)*3);
+  rpc_func(fs_chown,"i$ii",sizeof(int)*3+PATH_MAX);
+  rpc_func(fs_chmod,"i$i",sizeof(int)*2+PATH_MAX);
+  rpc_func(fs_access,"i$i",sizeof(int)*2+PATH_MAX);
+  rpc_func(fs_utime,"ii",sizeof(int)*2);
   fuse_inited = 1;
 }
 

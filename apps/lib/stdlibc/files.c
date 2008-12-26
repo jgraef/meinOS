@@ -140,21 +140,21 @@ static struct fslist_item *fsbypath(char *path,int parent) {
   if (fs==NULL) {
     fs = malloc(sizeof(struct fslist_item));
     char *mountpoint = strdup(path);
-    fs->id = rpc_call("vfs_getfsid",1,path,parent);
+    fs->id = rpc_call("vfs_getfsid",RPC_FLAG_RETPARAMS,path,parent);
     if (fs->id<0) {
       free(mountpoint);
       errno = -fs->id;
+      return NULL;
+    }
+    fs->pid = rpc_call("vfs_getpid",0,fs->id);
+    if (fs->pid<0) {
+      errno = -fs->pid;
       return NULL;
     }
     mountpoint[strlen(mountpoint)-strlen(path)] = 0;
     fs->mountpoint = path_parse(mountpoint);
     fs->mountpoint_str = path_output(fs->mountpoint,NULL);
     free(mountpoint);
-    fs->pid = rpc_call("vfs_getpid",0,fs->id);
-    if (fs->pid<0) {
-      errno = -fs->pid;
-      return NULL;
-    }
     llist_push(fslist,fs);
   }
 
@@ -270,13 +270,8 @@ int mknod(const char *path,mode_t mode,dev_t dev) {
   int res;
   char *cpath = getabsolutepath((char*)path);
   struct fslist_item *fs = fsbypath(cpath,1);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_mknod_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,cpath,mode&(~creation_mask),dev);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_mknod",RPC_FLAG_SENDTO,fs->pid,fs->id,cpath,mode&(~creation_mask),dev);
   else res = -EINVAL;
   free(cpath);
   errno = res<0?-res:0;
@@ -315,7 +310,6 @@ int open(const char *path,int oflag,...) {
   va_list args;
   int fh = 0;
   void *shmbuf;
-  char *func;
   char *cpath = getabsolutepath(path);
   struct fslist_item *fs = fsbypath(cpath,0);
   if (fs==NULL) fh = -errno;
@@ -332,9 +326,7 @@ int open(const char *path,int oflag,...) {
     shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
       strncpy(shmbuf,cpath,SHMMEM_SIZE);
-      asprintf(&func,"fs_open_%x",fs->pid);
-      fh = rpc_call(func,0,fs->id,oflag,shmid);
-      free(func);
+      fh = rpc_call("fs_open",RPC_FLAG_SENDTO,fs->pid,fs->id,oflag,shmid);
       if (fh>=0) {
         struct filelist_item *new = malloc(sizeof(struct filelist_item));
         new->fs_fh = fh;
@@ -374,12 +366,9 @@ void _close_all_filehandles() {
  */
 int close(int fildes) {
   int res;
-  char *func;
   struct filelist_item *file = filebyfh(fildes);
   if (file) {
-    asprintf(&func,"fs_close_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh);
-    free(func);
+    res = rpc_call("fs_close",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
     if (res==0) {
       shmdt(file->shmbuf);
       shmctl(file->shmid,IPC_RMID,NULL);
@@ -402,12 +391,9 @@ int close(int fildes) {
  */
 int dup2(int fildes,int fildes2) {
   int res = -1;
-  char *func;
   struct filelist_item *file = filebyfh(fildes);
   if (file) {
-    asprintf(&func,"fs_close_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh);
-    free(func);
+    res = rpc_call("fs_dup",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
     if (res>=0) {
       struct filelist_item *new = malloc(sizeof(struct filelist_item));
       memcpy(new,file,sizeof(struct filelist_item));
@@ -434,11 +420,7 @@ int dup2(int fildes,int fildes2) {
  *  @return How many bytes read
  */
 static ssize_t _read(struct filelist_item *file,void *buf,size_t count) {
-  ssize_t res;
-  char *func;
-  asprintf(&func,"fs_read_%x",file->fs->pid);
-  res = rpc_call(func,0,file->fs->id,file->fs_fh,count);
-  free(func);
+  ssize_t res = rpc_call("fs_read",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,count);
   if (res>0) memcpy(buf,file->shmbuf,res);
   return res;
 }
@@ -474,12 +456,9 @@ ssize_t read(int fildes,void *buf,size_t count) {
  *  @return How many bytes written
  */
 static ssize_t _write(struct filelist_item *file,const void *buf,size_t count) {
-  char *func;
   ssize_t res;
   memcpy(file->shmbuf,buf,count);
-  asprintf(&func,"fs_write_%x",file->fs->pid);
-  res = rpc_call(func,0,file->fs->id,file->fs_fh,count);
-  free(func);
+  res = rpc_call("fs_write",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,count);
   return res;
 }
 ssize_t write(int fildes,const void *buf,size_t count) {
@@ -513,13 +492,8 @@ ssize_t write(int fildes,const void *buf,size_t count) {
  */
 off_t lseek(int fildes,off_t offset,int whence) {
   int res;
-  char *func;
   struct filelist_item *file = filebyfh(fildes);
-  if (file!=NULL) {
-    asprintf(&func,"fs_seek_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh,offset,whence);
-    free(func);
-  }
+  if (file!=NULL) res = rpc_call("fs_seek",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,offset,whence);
   else res = -EBADF;
   errno = res<0?-res:0;
   return res<0?-1:res;
@@ -534,13 +508,8 @@ int unlink(const char *path) {
   int res;
   char *cpath = getabsolutepath((char*)path);
   struct fslist_item *fs = fsbypath(cpath,1);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_unlink_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,cpath);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_unlink",RPC_FLAG_SENDTO,fs->pid,fs->id,cpath);
   else res = -EINVAL;
   free(cpath);
   errno = res<0?-res:0;
@@ -551,18 +520,14 @@ int unlink(const char *path) {
  * Removes a directory
  *  @param path Path to directory
  *  @return 0=success; -1=failure
+ *  @todo does this need an own RPC function?
  */
 int rmdir(const char *path) {
   int res;
   char *cpath = getabsolutepath((char*)path);
   struct fslist_item *fs = fsbypath(cpath,1);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_rmdir_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,cpath);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_rmdir",RPC_FLAG_SENDTO,fs->pid,fs->id,cpath);
   else res = -EINVAL;
   free(cpath);
   errno = res<0?-res:0;
@@ -580,13 +545,8 @@ int rename(const char *old, const char *new) {
   char *cnew = getabsolutepath((char*)new);
   struct fslist_item *fs = fsbypath(cold,1);
   struct fslist_item *fsnew = fsbypath(cnew,1);
-  char *func;
 
-  if (fs!=NULL && fs==fsnew) {
-    asprintf(&func,"fs_rename_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,old,new);
-    free(func);
-  }
+  if (fs!=NULL && fs==fsnew) res = rpc_call("fs_rename",RPC_FLAG_SENDTO,fs->pid,fs->id,old,new);
   else res = -EINVAL;
   errno = res<0?-res:0;
   return res<0?-1:res;
@@ -616,13 +576,8 @@ int truncate(const char *path,off_t length) {
  */
 int ftruncate(int fildes,off_t length) {
   int res;
-  char *func;
   struct filelist_item *file = filebyfh(fildes);
-  if (file) {
-    asprintf(&func,"fs_ftruncate_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh,length);
-    free(func);
-  }
+  if (file) res = rpc_call("fs_ftruncate",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,length);
   else res = -EBADF;
   errno = res<0?-res:0;
   return res<0?-1:res;
@@ -637,7 +592,6 @@ int ftruncate(int fildes,off_t length) {
 DIR *opendir(const char *path) {
   int dh,res;
   void *shmbuf;
-  char *func;
   char *cpath = getabsolutepath(path);
   struct fslist_item *fs = fsbypath(cpath,0);
 
@@ -647,9 +601,7 @@ DIR *opendir(const char *path) {
     shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
       strncpy(shmbuf,cpath,SHMMEM_SIZE);
-      asprintf(&func,"fs_opendir_%x",fs->pid);
-      dh = rpc_call(func,0,fs->id,shmid);
-      free(func);
+      dh = rpc_call("fs_opendir",RPC_FLAG_SENDTO,fs->pid,fs->id,shmid);
       if (dh>=0) {
         new = malloc(sizeof(struct filelist_item));
         new->fs_fh = dh;
@@ -681,11 +633,8 @@ DIR *opendir(const char *path) {
  */
 int closedir(DIR *file) {
   int res;
-  char *func;
   if (file) {
-    asprintf(&func,"fs_closedir_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh);
-    free(func);
+    res = rpc_call("fs_closedir",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
     if (res==0) {
       shmdt(file->shmbuf);
       shmctl(file->shmid,IPC_RMID,NULL);
@@ -706,11 +655,8 @@ int closedir(DIR *file) {
  */
 struct dirent *readdir(DIR *file) {
   int res;
-  char *func;
   if (file!=NULL) {
-    asprintf(&func,"fs_readdir_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh);
-    free(func);
+    res = rpc_call("fs_readdir",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
     if (res>=0) {
       if (file->dir_cur.d_name!=NULL) free(file->dir_cur.d_name);
       file->dir_cur.d_name = strdup(file->shmbuf);
@@ -728,12 +674,7 @@ struct dirent *readdir(DIR *file) {
  */
 void seekdir(DIR *file,long loc) {
   int res;
-  char *func;
-  if (file) {
-    asprintf(&func,"fs_seekdir_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh,loc);
-    free(func);
-  }
+  if (file) res = rpc_call("fs_seekdir",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,loc);
   else res = -EBADF;
   errno = res<0?-res:0;
 }
@@ -745,12 +686,7 @@ void seekdir(DIR *file,long loc) {
  */
 long telldir(DIR *file) {
   int res;
-  char *func;
-  if (file) {
-    asprintf(&func,"fs_seekdir_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh,-1);
-    free(func);
-  }
+  if (file) res = rpc_call("fs_seekdir",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,-1);
   else res = -EBADF;
   errno = res<0?-res:0;
   return res<0?-1:res;
@@ -787,13 +723,10 @@ int stat(const char *path,struct stat *buf) {
  */
 int fstat(int fildes,struct stat *buf) {
   int res;
-  char *func;
   struct filelist_item *file = filebyfh(fildes);
   if (file) {
-    asprintf(&func,"fs_fstat_%x",file->fs->pid);
-    res = rpc_call(func,0,file->fs->id,file->fs_fh);
+    res = rpc_call("fs_fstat",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
     memcpy(buf,file->shmbuf,sizeof(struct stat));
-    free(func);
   }
   else res = -EBADF;
   errno = res<0?-res:0;
@@ -809,7 +742,6 @@ int fstat(int fildes,struct stat *buf) {
 int statvfs(const char *path,struct statvfs *buf) {
   int res = 0;
   void *shmbuf;
-  char *func;
   char *cpath = getabsolutepath(path);
   struct fslist_item *fs = fsbypath(cpath,0);
 
@@ -817,12 +749,10 @@ int statvfs(const char *path,struct statvfs *buf) {
     int shmid = shmget(IPC_PRIVATE,SHMMEM_SIZE,0);
     shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
-      asprintf(&func,"fs_statvfs_%x",fs->pid);
       memset(buf,0,sizeof(struct statvfs));
       strncpy(shmbuf,cpath,SHMMEM_SIZE);
-      res = rpc_call(func,0,fs->id,shmid);
+      res = rpc_call("stat_vfs",RPC_FLAG_SENDTO,fs->pid,fs->id,shmid);
       memcpy(buf,shmbuf,sizeof(struct statvfs));
-      free(func);
       shmdt(shmbuf);
       shmctl(shmid,IPC_RMID,NULL);
     }
@@ -844,7 +774,6 @@ int statvfs(const char *path,struct statvfs *buf) {
 ssize_t readlink(const char *path,char *buf,size_t bufsize) {
   int res = 0;
   void *shmbuf;
-  char *func;
   char *cpath = getabsolutepath(path);
   struct fslist_item *fs = fsbypath(cpath,0);
 
@@ -852,11 +781,9 @@ ssize_t readlink(const char *path,char *buf,size_t bufsize) {
     int shmid = shmget(IPC_PRIVATE,SHMMEM_SIZE,0);
     shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
-      asprintf(&func,"fs_readlink_%x",fs->pid);
       strncpy(shmbuf,cpath,SHMMEM_SIZE);
-      res = rpc_call(func,0,fs->id,shmid,bufsize);
+      res = rpc_call("fs_readlink",RPC_FLAG_SENDTO,fs->pid,fs->id,shmid,bufsize);
       strncpy(buf,shmbuf,bufsize);
-      free(func);
       shmdt(shmbuf);
       shmctl(shmid,IPC_RMID,NULL);
     }
@@ -879,13 +806,8 @@ int symlink(const char *dest,const char *src) {
   char *csrc = getabsolutepath((char*)src);
   char *cdest = getabsolutepath((char*)dest);
   struct fslist_item *fs = fsbypath(csrc,1);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_symlink_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,csrc,cdest);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_symlink",RPC_FLAG_SENDTO,fs->pid,fs->id,csrc,cdest);
   else res = -EINVAL;
   errno = res<0?-res:0;
   return res<0?-1:res;
@@ -903,13 +825,8 @@ int link(const char *src,const char *dest) {
   char *cdest = getabsolutepath((char*)dest);
   struct fslist_item *fs = fsbypath(csrc,1);
   struct fslist_item *fsdest = fsbypath(cdest,0);
-  char *func;
 
-  if (fs!=NULL && fs==fsdest) {
-    asprintf(&func,"fs_link_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,src,dest);
-    free(func);
-  }
+  if (fs!=NULL && fs==fsdest) res = rpc_call("fs_link",RPC_FLAG_SENDTO,fs->pid,fs->id,src,dest);
   else res = -EINVAL;
   errno = res<0?-res:0;
   return res<0?-1:res;
@@ -919,13 +836,8 @@ int chown(const char *path,uid_t uid,gid_t gid) {
   int res;
   char *cpath = getabsolutepath((char*)path);
   struct fslist_item *fs = fsbypath(cpath,0);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_chown_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,cpath,uid,gid);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_chown",RPC_FLAG_SENDTO,fs->pid,fs->id,cpath,uid,gid);
   else res = -EINVAL;
   free(cpath);
   errno = res<0?-res:0;
@@ -945,13 +857,8 @@ int chmod(const char *path,mode_t mode) {
   int res;
   char *cpath = getabsolutepath((char*)path);
   struct fslist_item *fs = fsbypath(cpath,0);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_chmod_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,cpath,mode);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_chmod",RPC_FLAG_SENDTO,fs->pid,fs->id,cpath,mode);
   else res = -EINVAL;
   free(cpath);
   errno = res<0?-res:0;
@@ -973,7 +880,6 @@ int fchmod(int fildes,mode_t mode) {
 int utime(const char *path,const struct utimbuf *times) {
   int res = 0;
   void *shmbuf;
-  char *func;
   char *cpath = getabsolutepath(path);
   struct fslist_item *fs = fsbypath(cpath,0);
 
@@ -981,11 +887,9 @@ int utime(const char *path,const struct utimbuf *times) {
     int shmid = shmget(IPC_PRIVATE,SHMMEM_SIZE,0);
     shmbuf = shmat(shmid,NULL,0);
     if (shmbuf!=NULL) {
-      asprintf(&func,"fs_utime_%x",fs->pid);
       strncpy(shmbuf,path,SHMMEM_SIZE);
       memcpy(shmbuf+strlen(shmbuf)+1,times,sizeof(struct utimbuf));
-      res = rpc_call(func,0,fs->id,shmid);
-      free(func);
+      res = rpc_call("fs_utime",RPC_FLAG_SENDTO,fs->pid,fs->id,shmid);
       shmdt(shmbuf);
       shmctl(shmid,IPC_RMID,NULL);
     }
