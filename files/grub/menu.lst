@@ -8,6 +8,7 @@ timeout 5
 
 title meinOS - kernel 2
 kernel /kernel2
+# @todo generate this header from some config file in /etc/init.d
 module /bin/init
 module /bin/vfs
 module /bin/devfs
@@ -15,8 +16,6 @@ module /bin/dma
 module /bin/ata
 module /bin/cdrom
 module /bin/iso9660
-module /bin/pci
-module /bin/psdev
 module /bin/ramdisk
 module /bin/console
 module /bin/init2
