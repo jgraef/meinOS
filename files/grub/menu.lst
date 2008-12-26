@@ -12,7 +12,6 @@ kernel /kernel2
 module /bin/init
 module /bin/vfs
 module /bin/devfs
-module /bin/dma
 module /bin/ata
 module /bin/cdrom
 module /bin/iso9660

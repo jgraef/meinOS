@@ -38,7 +38,6 @@
 static const char *init_programs[] = {
   "vfs",
   "devfs",
-  "dma",
   "ata",
   "cdrom",
   "iso9660",

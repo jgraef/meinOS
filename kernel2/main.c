@@ -113,6 +113,10 @@ int main(multiboot_info_t *mbi,uint32_t magic) {
   for (i=0;(addr = multiboot_get_mod(i,&file,&size));i++) {
     name = basename(file);
     kprintf("    %s:\t%s:\t0x%x / 0x%x...",name,file,addr,size);
+    if (addr+size>(void*)KERNELCODE_ADDRESS+KERNELCODE_SIZE) {
+      kprintf("\n");
+      panic("Program %s is too large\n",name);
+    }
     proc_t *new = proc_create(name,PERM_ROOTUID,PERM_ROOTGID,i==0?NULL:proc_init,(i==0),(i==0));
     if (i==0) proc_init = new;
     if (new!=NULL) {
