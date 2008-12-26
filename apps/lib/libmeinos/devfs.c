@@ -51,7 +51,10 @@ static int getlidx_id(int devid) {
  */
 static int devfs_read(int devid,size_t size,off_t offset) {
   devfs_dev_t *dev = llist_get(devlist,getlidx_id(devid));
-  if (dev->func_read!=NULL) return dev->func_read(dev,dev->shmbuf,size,offset);
+  if (dev->func_read!=NULL) {
+    if (size>DEVFS_BUFSIZE) size = DEVFS_BUFSIZE;
+    return dev->func_read(dev,dev->shmbuf,size,offset);
+  }
   else return -ENOSYS;
 }
 
@@ -63,28 +66,20 @@ static int devfs_read(int devid,size_t size,off_t offset) {
  */
 static int devfs_write(int devid,size_t size,off_t offset) {
   devfs_dev_t *dev = llist_get(devlist,getlidx_id(devid));
-  if (dev->func_write!=NULL) return dev->func_write(dev,dev->shmbuf,size,offset);
+  if (dev->func_write!=NULL) {
+    if (size>DEVFS_BUFSIZE) size = DEVFS_BUFSIZE;
+    return dev->func_write(dev,dev->shmbuf,size,offset);
+  }
   else return -ENOSYS;
-}
-
-
-#define devfs_func_create(func,synopsis,bufsize) _devfs_func_create(__STRING(func),func,synopsis,bufsize,pid)
-static int _devfs_func_create(char *name,void *func,char *synopsis,size_t bufsize,pid_t pid) {
-  char *rpc;
-  asprintf(&rpc,"%s_%x",name,pid);
-  int ret = rpc_func_create(rpc,func,synopsis,bufsize);
-  free(rpc);
-  return ret;
 }
 
 /**
  * Initializes DevFS
  */
 void devfs_init() {
-  pid_t pid = getpid();
   devlist = llist_create();
-  devfs_func_create(devfs_read,"iii",sizeof(int)*3);
-  devfs_func_create(devfs_write,"iii",sizeof(int)*3);
+  rpc_func(devfs_read,"iii",sizeof(int)*3);
+  rpc_func(devfs_write,"iii",sizeof(int)*3);
 }
 
 /**

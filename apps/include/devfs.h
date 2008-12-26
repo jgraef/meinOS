@@ -25,20 +25,27 @@
 
 #define DEVFS_BUFSIZE (2*PAGE_SIZE)
 
+/// Device
 typedef struct devfs_dev_S devfs_dev_t;
 struct devfs_dev_S {
-  char *name;        // Device name
-  dev_t id;          // Device ID
-  int shmid;         // SHMID
-  void *shmbuf;      // SHM buffer
+  /// Device name
+  char *name;
+  /// Device ID
+  dev_t id;
+  /// SHMID
+  int shmid;
+  /// SHM buffer
+  void *shmbuf;
+  /// Read callback
   ssize_t (*func_read)(devfs_dev_t *dev,void *buf,size_t count,off_t offset);
+  /// Write callback
   ssize_t (*func_write)(devfs_dev_t *dev,void *buf,size_t count,off_t offset);
-  void *user_data;   // User data
+  /// User (private) data
+  void *user_data;
 };
 
 #define devfs_curpid rpc_curpid
 #define devfs_mainloop() rpc_mainloop(-1)
-
 
 /**
  * Sets callback function for fileread

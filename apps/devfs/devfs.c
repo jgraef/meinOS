@@ -30,10 +30,11 @@ struct devlist_item {
   pid_t owner;
   enum { DT_CHAR,DT_BLOCK } type;
   void *shmbuf;
+  size_t bufsz;
 };
 
-llist_t devlist;
-int nextdevid;
+static llist_t devlist;
+static int nextdevid;
 
 #define getnew_devid() (nextdevid++)
 
@@ -42,7 +43,7 @@ int nextdevid;
  *  @param devid DevID
  *  @return ListID
  */
-int getlid_devid(int devid) {
+static int getlid_devid(int devid) {
   struct devlist_item *dev;
   int i;
   for (i=0;(dev = llist_get(devlist,i));i++) {
@@ -56,7 +57,7 @@ int getlid_devid(int devid) {
  *  @param name Device name
  *  @return Device
  */
-struct devlist_item *getdev_name(char *name) {
+static struct devlist_item *getdev_name(char *name) {
   struct devlist_item *dev;
   int i;
 
@@ -72,7 +73,7 @@ struct devlist_item *getdev_name(char *name) {
  *  @param fi File Info
  *  @return Filehandle
  */
-int devfs_open(const char *path,struct fuse_file_info *fi) {
+static int devfs_open(const char *path,struct fuse_file_info *fi) {
   struct devlist_item *dev = getdev_name((char*)path+1);
   if (dev!=NULL) return 0;
   else return -ENOENT;
@@ -84,7 +85,7 @@ int devfs_open(const char *path,struct fuse_file_info *fi) {
  *  @param fi File Info
  *  @return Success?
  */
-int devfs_close(const char *path,struct fuse_file_info *fi) {
+static int devfs_close(const char *path,struct fuse_file_info *fi) {
   return 0;
 }
 
@@ -97,14 +98,12 @@ int devfs_close(const char *path,struct fuse_file_info *fi) {
  *  @param fi File info
  *  @return How many bytes read (-Errorcode)
  */
-int devfs_read(const char *path,char *buf,size_t count,off_t offset,struct fuse_file_info *fi) {
+static int devfs_read(const char *path,char *buf,size_t count,off_t offset,struct fuse_file_info *fi) {
   struct devlist_item *dev = getdev_name((char*)path+1);
-  char *func;
   if (dev!=NULL) {
-    asprintf(&func,"devfs_read_%x",dev->owner);
-    int ret = rpc_call(func,0,dev->id,count,offset);
+    if (count>dev->bufsz) count = dev->bufsz;
+    int ret = rpc_call("devfs_read",RPC_FLAG_SENDTO,dev->owner,dev->id,count,offset);
     memcpy(buf,dev->shmbuf,count);
-    free(func);
     return ret;
   }
   else return -ENOENT;
@@ -119,15 +118,12 @@ int devfs_read(const char *path,char *buf,size_t count,off_t offset,struct fuse_
  *  @param fi File info
  *  @return How many bytes written (-Errorcode)
  */
-int devfs_write(const char *path,const char *buf,size_t count,off_t offset,struct fuse_file_info *fi) {
+static int devfs_write(const char *path,const char *buf,size_t count,off_t offset,struct fuse_file_info *fi) {
   struct devlist_item *dev = getdev_name((char*)path+1);
-  char *func;
   if (dev!=NULL) {
-    asprintf(&func,"devfs_write_%x",dev->owner);
+    if (count>dev->bufsz) count = dev->bufsz;
     memcpy(dev->shmbuf,buf,count);
-    int ret = rpc_call(func,0,dev->id,count,offset);
-    free(func);
-    return ret;
+    return rpc_call("devfs_write",RPC_FLAG_SENDTO,dev->owner,dev->id,count,offset);
   }
   else return -ENOENT;
 }
@@ -141,7 +137,7 @@ int devfs_write(const char *path,const char *buf,size_t count,off_t offset,struc
  *  @param fi File info
  *  @return 0=success (-Errorcode)
  */
-int devfs_readdir(const char *path,void *buf,fuse_fill_dir_t filler,off_t off,struct fuse_file_info *fi) {
+static int devfs_readdir(const char *path,void *buf,fuse_fill_dir_t filler,off_t off,struct fuse_file_info *fi) {
   if (strcmp(path,"/")==0) {
     size_t i;
     struct devlist_item *dev;
@@ -159,7 +155,7 @@ int devfs_readdir(const char *path,void *buf,fuse_fill_dir_t filler,off_t off,st
  *  @param stbuf Buffer to store informations in
  *  @return 0=success (-Errorcode)
  */
-int devfs_getattr(const char *path,struct stat *stbuf) {
+static int devfs_getattr(const char *path,struct stat *stbuf) {
   struct devlist_item *dev;
   memset(stbuf,0,sizeof(struct stat));
   if (strcmp(path,"/") == 0) {
@@ -180,14 +176,17 @@ int devfs_getattr(const char *path,struct stat *stbuf) {
  *  @param name Device name
  *  @return DevID
  */
-int devfs_createdev(char *name,int shmid) {
+static int devfs_createdev(char *name,int shmid) {
   int devid = getnew_devid();
   if (devid>=0 && getdev_name(name)==NULL) {
     struct devlist_item *new = malloc(sizeof(struct devlist_item));
+    struct shmid_ds shmid_ds;
+    shmctl(shmid,IPC_STAT,&shmid_ds);
     new->id = devid;
     new->name = strdup(name);
     new->owner = rpc_curpid;
     new->shmbuf = shmat(shmid,NULL,0);
+    new->bufsz = shmid_ds.shm_segsz;
     llist_push(devlist,new);
     return devid;
   }
@@ -202,7 +201,7 @@ int devfs_createdev(char *name,int shmid) {
  *  @param id DevID
  *  @return 0=success; -1=failure
  */
-int devfs_removedev(int id) {
+static int devfs_removedev(int id) {
   struct devlist_item *dev = llist_get(devlist,getlid_devid(id));
   if (dev!=NULL && dev->owner==rpc_curpid) {
     llist_remove(devlist,getlid_devid(id));
@@ -224,7 +223,7 @@ int main(int argc,char *argv[]) {
   devlist = llist_create();
   nextdevid = 1;
 
-  rpc_func(devfs_createdev,"$i",NAME_MAX+sizeof(int));
+  rpc_func(devfs_createdev,"$ii",NAME_MAX+sizeof(int));
   rpc_func(devfs_removedev,"i",sizeof(int));
 
   struct fuse_operations devfs_oper = {
