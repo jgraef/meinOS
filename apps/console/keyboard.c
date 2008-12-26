@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <wchar.h>
 #include <errno.h>
+#include <ringbuf.h>
 
 #include "console.h"
 
@@ -43,12 +44,7 @@ struct {
   int escape;
   int shift;
   int altcap;
-  struct {
-    char *buffer;
-    size_t wpos;
-    size_t rpos;
-    size_t size;
-  } buffer;
+  ringbuf_t *buffer;
   struct {
     int has_shift;
     int has_altcap;
@@ -104,12 +100,7 @@ static wchar_t scancode2wchr(int scancode) {
  *  @return How many bytes read
  */
 ssize_t onread(devfs_dev_t *dev,void *buffer,size_t count,off_t offset) {
-  count = count>keyboard.buffer.wpos-keyboard.buffer.rpos?keyboard.buffer.wpos-keyboard.buffer.rpos:count;
-  if (count>0) {
-    memcpy(buffer,keyboard.buffer.buffer+keyboard.buffer.rpos,count);
-    keyboard.buffer.rpos += count;
-  }
-  return count;
+  return ringbuf_read(keyboard.buffer,buffer,count);
 }
 
 /**
@@ -149,7 +140,7 @@ static void keyboard_irq(void *null) {
       if (chr>0x7F) DEBUG("TODO: Wide characters (%s %d)\n",__FILE__,__LINE__);
       else if (chr!=0) {
         //DEBUG("keyboard: Read character: '%c' (0x%02x)\n",chr,chr);
-        keyboard.buffer.buffer[keyboard.buffer.wpos++] = chr;
+        ringbuf_write(keyboard.buffer,&chr,1);
       }
     }
   }
@@ -165,8 +156,7 @@ int init_keyboard() {
   irq_reghandler(KEYBOARD_IRQ,keyboard_irq,NULL,0);
 
   memset(&keyboard,0,sizeof(keyboard));
-  keyboard.buffer.size = KEYBUF_SIZE;
-  keyboard.buffer.buffer = malloc(keyboard.buffer.size);
+  keyboard.buffer = ringbuf_create(KEYBUF_SIZE);
   keyboard_layout_load(KEYBOARD_DEFAULT_LAYOUT);
 
   keyboard_irq(NULL);
