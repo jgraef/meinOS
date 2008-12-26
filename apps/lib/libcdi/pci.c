@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <dirent.h>
+#include <stdio.h>
 
 struct pci_config {
   uint16_t vendor_id;

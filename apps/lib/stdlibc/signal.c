@@ -22,8 +22,6 @@
 #include <string.h>
 #include <signal.h>
 
-#include <stdio.h>
-
 #define SIG_NUM 64
 
 typedef struct {

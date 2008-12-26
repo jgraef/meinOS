@@ -35,8 +35,6 @@
 #include <fuse_common.h>
 #include <fuse_opt.h>
 
-#include <stdio.h> ///< @todo remove!
-
 #define fuse_main(argc,argv,op,user_data) fuse_main_real(argc,argv,op,sizeof(*(op)),user_data)
 #define fuse_loop_mt(fuse)                fuse_loop(fuse) /* Multithreading not supported */
 

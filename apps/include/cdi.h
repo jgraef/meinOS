@@ -20,8 +20,6 @@
 #define _CDI_H_
 
 #include <cdi/lists.h>
-/// @todo remove
-#include <stdio.h>
 
 #define CDI_STANDALONE
 
