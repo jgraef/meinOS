@@ -4,4 +4,4 @@ all:
 	$(LIBS_AR) rs ../libfuse.a *.o
 
 clean:
-	rm *.o
+	rm -f *.o

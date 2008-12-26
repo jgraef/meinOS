@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o devfs devfs.c -lfuse
-	$(APPS_STRIP) devfs
-	cp devfs ../../files/bin
+all: devfs devfs.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o devfs devfs.c -lfuse
-	$(APPS_OBJDUMP) -d -S devfs > devfs.objdump
+devfs: devfs.c
+	$(APPS_CC) -o $@ $^ -lfuse
+
+devfs.objdump: devfs
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm devfs
+	rm -f devfs *.objdump

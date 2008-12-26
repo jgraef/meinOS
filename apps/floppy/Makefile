@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o floppy *.c -lcdi
-	$(APPS_STRIP) floppy
-	cp floppy ../../files/bin
+all: floppy floppy.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o floppy floppy.c
-	$(APPS_OBJDUMP) -d -S floppy > floppy.objdump
+floppy: device.c main.c
+	$(APPS_CC) -o $@ $^ -lcdi
+
+floppy.objdump: floppy
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm floppy
+	rm -f floppy *.objdump

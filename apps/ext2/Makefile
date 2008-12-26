@@ -1,13 +1,28 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o ext2 *.c libext2/*.c -Ilibext2/include -lcdi
-	$(APPS_STRIP) ext2
-	cp ext2 ../../files/bin
+SOURCES = dir.c \
+          file.c \
+          init.c \
+          libext2_cache.c \
+          main.c \
+          res.c \
+          resources.c \
+          symlinks.c \
+          libext2/directory.c \
+          libext2/file.c \
+          libext2/fs.c \
+          libext2/inode.c \
+          libext2/superblock.c \
+          libext2/symlink.c
 
-debug:
-	$(APPS_CC) -o ext2 *.c libext2/*.c -Ilibext2/include -lcdi
-	$(APPS_OBJDUMP) -d -S ext2 > ext2.objdump
+all: ext2 ext2.objdump
+	cp $< ../../files/bin
+
+ext2: $(SOURCES)
+	$(APPS_CC) -o $@ $^ -Ilibext2/include -lcdi
+
+ext2.objdump: ext2
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm ext2
+	rm -f ext2 *.objdump

@@ -12,4 +12,4 @@ en_us: en_us.c
 	$(CC) -o $@ $^
 
 clean:
-	rm de en_us
+	rm -f de en_us

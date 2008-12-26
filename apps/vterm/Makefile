@@ -1,13 +1,18 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o vterm vterm.c
-	$(APPS_STRIP) vterm
-	cp vterm ../../files/bin
+SOURCES = display.c \
+          keyboard.c \
+          main.c \
+          vterm.c
 
-debug:
-	$(APPS_CC) -o vterm *.c -lcdi
-	$(APPS_OBJDUMP) -d -S vterm > vterm.objdump
+all: vterm vterm.objdump
+	cp $< ../../files/bin
+
+vterm: $(SOURCES)
+	$(APPS_CC) -o $@ $^
+
+vterm.objdump: vterm
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm vterm
+	rm -f vterm *.objdump

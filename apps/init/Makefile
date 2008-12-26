@@ -1,16 +1,24 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o init init.c exe_*.c
-	$(APPS_CC) -o init2 init2.c
-	$(APPS_STRIP) init init2
-	cp init init2 ../../files/bin
+all: all_init all_init2
 
-debug:
-	$(APPS_CC) -o init init.c exe_*.c
-	$(APPS_CC) -o init2 init2.c
-	$(APPS_OBJDUMP) -d -S init > init.objdump
-	$(APPS_OBJDUMP) -d -S init2 > init2.objdump
+all_init: init init.objdump
+	cp $< ../../files/bin
+
+all_init2: init2 init2.objdump
+	cp $< ../../files/bin
+
+init: init.c exe_elf.c
+	$(APPS_CC) -o $@ $^
+
+init2: init2.c
+	$(APPS_CC) -o $@ $^
+
+init.objdump: init
+	$(APPS_OBJDUMP) -d -S $^ > $@
+
+init2.objdump: init2
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm -f init init2
+	rm -f init init2 *.objdump

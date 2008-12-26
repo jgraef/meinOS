@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o login login.c #-DLOGIN
-	$(APPS_STRIP) login
-	cp login ../../files/bin
+all: login login.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o login login.c #-DLOGIN
-	$(APPS_OBJDUMP) -d -S login > login.objdump
+login: login.c
+	$(APPS_CC) -o $@ $^ #-DLOGIN
+
+login.objdump: login
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm login
+	rm -f login *.objdump

@@ -1,13 +1,24 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o mount mount.c
-	$(APPS_STRIP) mount
-	cp mount ../../files/bin
+all: all_mount all_umount
 
-debug:
-	$(APPS_CC) -o mount *.c
-	$(APPS_OBJDUMP) -d -S mount > mount.objdump
+all_mount: mount mount.objdump
+	cp $< ../../files/bin
+
+all_umount: umount umount.objdump
+	cp $< ../../files/bin
+
+mount: mount.c
+	$(APPS_CC) -o $@ $^
+
+umount: umount.c
+	$(APPS_CC) -o $@ $^
+
+mount.objdump: mount
+	$(APPS_OBJDUMP) -d -S $^ > $@
+
+umount.objdump: umount
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm -f mount
+	rm -f mount umount *.objdump

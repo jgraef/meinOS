@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o cirrus *.c -lcdi
-	$(APPS_STRIP) cirrus
-	cp cirrus ../../files/bin
+all: cirrus cirrus.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o cirrus *.c -lcdi
-	$(APPS_OBJDUMP) -d -S cirrus > cirrus.objdump
+cirrus: bitmap.c device.c display.c draw.c main.c vesa.c vram.c
+	$(APPS_CC) -o $@ $^ -lcdi
+
+cirrus.objdump: cirrus
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm cirrus
+	rm -f cirrus *.objdump

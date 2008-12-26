@@ -1,14 +1,24 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o fat *.c -lcdi
-	$(APPS_STRIP) fat
-	cp fat ../../files/bin
+SOURCES = bootsector.c \
+         cluster.c \
+         dir.c \
+         file.c \
+         init.c \
+         main.c \
+         res.c \
+         resources.c \
+         sector.c
 
-debug:
-	$(APPS_CC) -o fat *.c -lcdi
-	$(APPS_OBJDUMP) -d -S fat > fat.objdump
+all: fat fat.objdump
+	cp $< ../../files/bin
+
+fat: $(SOURCES)
+	$(APPS_CC) -o $@ $^ -lcdi
+
+fat.objdump: fat
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm fat
+	rm -f fat *.objdump
  

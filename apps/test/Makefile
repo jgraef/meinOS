@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o test test.c
-	$(APPS_STRIP) test
-	cp test ../../files/bin
+all: test test.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o test test.c
-	$(APPS_OBJDUMP) -d -S test > test.objdump
+test: test.c
+	$(APPS_CC) -o $@ $^
+
+test.objdump: test
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm test
+	rm -f test *.objdump

@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o vfs vfs.c
-	$(APPS_STRIP) vfs
-	cp vfs ../../files/bin
+all: vfs vfs.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o vfs *.c -lcdi
-	$(APPS_OBJDUMP) -d -S vfs > vfs.objdump
+vfs: vfs.c
+	$(APPS_CC) -o $@ $^
+
+vfs.objdump: vfs
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm vfs
+	rm -f vfs *.objdump

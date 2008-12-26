@@ -1,13 +1,21 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o ramdisk *.c -lcdi
-	$(APPS_STRIP) ramdisk
-	cp ramdisk ../../files/bin
+SOURCES = dir.c \
+          file.c \
+          init.c \
+          link.c \
+          main.c \
+          res.c \
+          resources.c
 
-debug:
-	$(APPS_CC) -o ramdisk *.c -lcdi
-	$(APPS_OBJDUMP) -d -S ramdisk > ramdisk.objdump
+all: ramdisk ramdisk.objdump
+	cp $< ../../files/bin
+
+ramdisk: $(SOURCES)
+	$(APPS_CC) -o $@ $^ -lcdi
+
+ramdisk.objdump: ramdisk
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm ramdisk
+	rm -f ramdisk *.objdump

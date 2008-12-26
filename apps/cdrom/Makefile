@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o cdrom *.c
-	$(APPS_STRIP) cdrom
-	cp cdrom ../../files/bin
+all: cdrom cdrom.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o cdrom *.c
-	$(APPS_OBJDUMP) -d -S cdrom > cdrom.objdump
+cdrom: main.c device.c
+	$(APPS_CC) -o $@ $^
+
+cdrom.objdump: cdrom
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm cdrom
+	rm -f cdrom *.objdump

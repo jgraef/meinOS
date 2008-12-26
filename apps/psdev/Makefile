@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o psdev *.c -lcdi
-	$(APPS_STRIP) psdev
-	cp psdev ../../files/bin
+all: psdev psdev.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o psdev *.c -lcdi
-	$(APPS_OBJDUMP) -d -S psdev > psdev.objdump
+psdev: main.c null.c random.c time.c zero.c
+	$(APPS_CC) -o $@ $^
+
+psdev.objdump: psdev
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm psdev
+	rm -f psdev *.objdump

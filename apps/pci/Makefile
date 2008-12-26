@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o pci *.c -lcdi
-	$(APPS_STRIP) pci
-	cp pci ../../files/bin
+all: pci pci.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o pci *.c -lcdi
-	$(APPS_OBJDUMP) -d -S pci > pci.objdump
+pci: pci.c
+	$(APPS_CC) -o $@ $^
+
+pci.objdump: pci
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm pci
+	rm -f pci *.objdump

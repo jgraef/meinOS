@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o console *.c
-	$(APPS_STRIP) console
-	cp console ../../files/bin
+all: console console.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o console *.c
-	$(APPS_OBJDUMP) -d -S console > console.objdump
+console: main.c keyboard.c screen.c
+	$(APPS_CC) -o $@ $^
+
+console.objdump: console
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm console
+	rm -f console *.objdump

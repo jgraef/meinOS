@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o joystick joystick.c
-	$(APPS_STRIP) joystick
-	cp joystick ../../files/bin
+all: joystick joystick.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o joystick joystick.c
-	$(APPS_OBJDUMP) -d -S joystick > joystick.objdump
+joystick:
+	$(APPS_CC) -o $@ $^
+
+joystick.objdump: joystick
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm joystick
+	rm -f joystick *.objdump

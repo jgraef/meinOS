@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o ata *.c -lcdi
-	$(APPS_STRIP) ata
-	cp ata ../../files/bin
+all: ata ata.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o ata *.c -lcdi
-	$(APPS_OBJDUMP) -d -S ata > ata.objdump
+ata: ata.c atapi.c device.c libpartition.c main.c request.c
+	$(APPS_CC) -o $@ $^ -lcdi
+
+ata.objdump: ata
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm ata
+	rm -f ata *.objdump

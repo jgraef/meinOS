@@ -1,14 +1,13 @@
 -include ../../Makefile.config
 
-all: beep
+all: beep beep.objdump
+	cp $< ../../files/bin
 
 beep: beep.c
 	$(APPS_CC) -o $@ $^
-	$(APPS_STRIP) $@
-	cp $@ ../../files/bin
 
-debug: beep
-	$(APPS_OBJDUMP) -d -S $^ > beep.objdump
+beep.objdump: beep
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm -f beep
+	rm -f beep *.objdump

@@ -1,13 +1,22 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o gzip *.c -lz
-	$(APPS_STRIP) gzip
-	cp gzip ../../files/bin
+SOURCES = bits.c \
+          deflate.c \
+          gzip.c \
+          inflate.c \
+          trees.c \
+          unzip.c \
+          util.c \
+          zip.c
 
-debug:
-	$(APPS_CC) -o gzip *.c -lz
-	$(APPS_OBJDUMP) -d -S gzip > gzip.objdump
+all: gzip gzip.objdump
+	cp $< ../../files/bin
+
+gzip: $(SOURCES)
+	$(APPS_CC) -o $@ $^ -lz
+
+gzip.objdump: gzip
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm gzip
+	rm -f gzip *.objdump

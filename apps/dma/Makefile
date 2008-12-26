@@ -1,13 +1,13 @@
 -include ../../Makefile.config
 
-all:
-	$(APPS_CC) -o dma dma.c
-	$(APPS_STRIP) dma
-	cp dma ../../files/bin
+all: dma dma.objdump
+	cp $< ../../files/bin
 
-debug:
-	$(APPS_CC) -o dma dma.c
-	$(APPS_OBJDUMP) -d -S dma > dma.objdump
+dma: dma.c
+	$(APPS_CC) -o $@ $^
+
+dma.objdump: dma
+	$(APPS_OBJDUMP) -d -S $^ > $@
 
 clean:
-	rm dma
+	rm -f dma *.objdump
