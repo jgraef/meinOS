@@ -1,40 +1,20 @@
 -include ../../Makefile.config
 
-all: libc.a libmeinos.a libcdi.a libfuse.a libz.a libreadline.a libavl.a libcrypt.a crt0.o
-	cp $^ $(GCC_TOOLCHAIN)/lib/
+all:
+	make -C stdlibc/
+	make -C libmeinos/
+	make -C libcdi/
+	make -C libfuse/
+	make -C zlib/
+	make -C readline/
+	make -C libavl/
+	make -C libcrypt/
+	make -C crt0/
+
+	cp *.a *.o $(GCC_TOOLCHAIN)/lib/
 	# HACK!
 	# merge libmeinos and libc together
-	ar qs $(GCC_TOOLCHAIN)/lib/libc.a ../../lib/libmeinos/*.o
 	ar qs $(GCC_TOOLCHAIN)/lib/libc.a libmeinos/*.o
-
-libc.a:
-	make -C stdlibc/
-	ar qs libc.a ../../lib/stdlibc/*.o
-
-libmeinos.a:
-	make -C libmeinos/
-	ar qs libmeinos.a ../../lib/libmeinos/*.o
-
-libcdi.a:
-	make -C libcdi/
-
-libfuse.a:
-	make -C libfuse/
-
-libz.a:
-	make -C zlib/
-
-libreadline.a:
-	make -C readline/
-
-libavl.a:
-	make -C libavl/
-
-libcrypt.a:
-	make -C libcrypt/
-
-crt0.o:
-	make -C crt0/
 
 clean:
 	make -C libmeinos/ clean
@@ -46,5 +26,3 @@ clean:
 	make -C libavl/ clean
 	make -C libcrypt/ clean
 	make -C crt0/ clean
-
-	rm -f *.a *.o

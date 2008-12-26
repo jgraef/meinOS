@@ -1,6 +1,9 @@
 -include ../../../Makefile.config
 
-all:
-	$(LIBS_CC) -c -o ../crt0.o crt0.c $(LIBS_CFLAGS)
+all: ../crt0.o
+
+../crt0.o: crt0.c
+	$(LIBS_CC) $(LIBS_CFLAGS) -o $@ $^
 
 clean:
+	rm -f ../crt0.o

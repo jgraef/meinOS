@@ -1,8 +1,14 @@
 -include ../../../Makefile.config
 
-all:
-	$(LIBS_CC) -c *.c $(LIBS_CFLAGS)
-	$(LIBS_AR) rs ../libreadline.a *.o
+OBJFILES = readline.o
+
+all: ../libreadline.a
+
+../libreadline.a: $(OBJFILES)
+	$(LIBS_AR) rs $@ $^
+
+readline.o: readline.c
+	$(LIBS_CC) $(LIBS_CFLAGS) -o $@ $^
 
 clean:
-	rm -f *.o
+	rm -f $(OBJFILES) ../libreadline.a
