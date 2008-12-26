@@ -28,8 +28,6 @@
 
 #define check_stream(stream) ((stream)!=NULL && (stream)->fh>=0)
 
-//#define _STDIO_DEBUG
-
 static FILE *create_stream(int fh,int oflag) {
   FILE *stream = malloc(sizeof(FILE));
   stream->fh = fh;
@@ -190,20 +188,11 @@ FILE *fopen(const char *name,const char *oflag) {
  */
 int fflush(FILE *stream) {
   if (stream->dobuf) {
-    int ret;
-#ifdef _STDIO_DEBUG
-    if (stream->fh==STDOUT_FILENO) ret = syscall_call(SYSCALL_PUTSN,3,0,stream->buf,stream->bufcur-stream->buf)==-1?EOF:0;
-    else if (stream->fh==STDERR_FILENO) ret = syscall_call(SYSCALL_PUTSN,3,1,stream->buf,stream->bufcur-stream->buf)==-1?EOF:0;
-    else {
-#endif
-      ret = write(stream->fh,stream->buf,stream->bufcur-stream->buf);
-      if (ret>0 && ret<(stream->bufcur-stream->buf)) {
-        stream->eof = 1;
-        ret = EOF;
-      }
-#ifdef _STDIO_DEBUG
+    int ret = write(stream->fh,stream->buf,stream->bufcur-stream->buf);
+    if (ret>0 && ret<(stream->bufcur-stream->buf)) {
+      stream->eof = 1;
+      ret = EOF;
     }
-#endif
     stream->bufcur = stream->buf;
     return ret;
   }
