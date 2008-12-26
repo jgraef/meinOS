@@ -274,6 +274,8 @@ void proc_shedule() {
     proc_current = NULL;
   }
 
+//kprintf("running=%d; sleeping=%d\r",llist_size(proc_running),llist_size(proc_sleeping));
+
   // Search for process that still has time
   for (i=0;(proc = llist_get(proc_running,i));i++) {
     if (proc->ticks_rem>0) proc_current = proc;
