@@ -63,4 +63,6 @@ static __inline__ void computer_shutdown() {
   rpc_call("computer_shutdown",0);
 }
 
+void dbgmsg(const char *fmt,...);
+
 #endif

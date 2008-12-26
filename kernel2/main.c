@@ -59,12 +59,9 @@ int fourtytwo() {
   return 42;
 }
 
-int putsn(int out,char *buf,size_t maxlen) {
+int putsn(char *buf,size_t maxlen) {
   size_t i;
-  for (i=0;buf[i]!=0 && i<maxlen;i++) {
-    if (out==0) kprintchar(buf[i]);
-    else com_send(buf[i]);
-  }
+  for (i=0;buf[i]!=0 && i<maxlen;i++) kprintchar(buf[i]);
   return i;
 }
 
@@ -102,7 +99,7 @@ int main(multiboot_info_t *mbi,uint32_t magic) {
   test(biosint_init());
 
   /// @deprecated Only for debugging
-  syscall_create(SYSCALL_PUTSN,putsn,3);
+  syscall_create(SYSCALL_PUTSN,putsn,2);
   syscall_create(SYSCALL_FOURTYTWO,fourtytwo,0);
 
   // load initial programs

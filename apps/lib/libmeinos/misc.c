@@ -58,3 +58,20 @@ int vfs_unmount(const char *fs,const char *mountpoint) {
   free(func);
   return ret;
 }
+
+/**
+ * Prints a debug message through kernel
+ *  @param fmt Format
+ *  @param ... Parameters
+ */
+void dbgmsg(const char *fmt,...) {
+#if 1
+  va_list args;
+  char *buf;
+  va_start(args,fmt);
+  size_t len = vasprintf(&buf,fmt,args);
+  syscall_call(SYSCALL_PUTSN,2,buf,len);
+  free(buf);
+  va_end(args);
+#endif
+}
