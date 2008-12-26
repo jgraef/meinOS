@@ -43,4 +43,4 @@ uncompr.o: uncompr.c
 zutil.o: zutil.c
 
 clean:
-	rm -f $(OBJFILES) ../libreadline.c
+	rm -f $(OBJFILES) ../libz.a
