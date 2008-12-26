@@ -39,13 +39,15 @@ int rpc_func_destroy(int id) {
   return ret<0?-1:ret;
 }
 
-int rpc_vcall(const char *name,int ret_params,va_list args) {
+int rpc_vcall(const char *name,int flags,va_list args) {
   int ret,id,error;
   char synopsis[RPC_SYNOPSIS_MAXLEN];
   size_t paramsz,i;
   pack_t params;
+  int ret_params = (flags&RPC_FLAG_RETPARAMS);
+  pid_t sendto = (flags&RPC_FLAG_SENDTO)?va_arg(args,pid_t):0;
 
-  id = syscall_call(SYSCALL_RPC_GETINFO,8,-1,name,0,0,&paramsz,synopsis,RPC_SYNOPSIS_MAXLEN,0);
+  id = syscall_call(SYSCALL_RPC_GETINFO,8,-1,name,sendto,0,&paramsz,synopsis,RPC_SYNOPSIS_MAXLEN,0);
   if (id>=0) {
     // pack parameters
     params = pack_malloc(paramsz);
@@ -97,10 +99,10 @@ int rpc_vcall(const char *name,int ret_params,va_list args) {
   return -1;
 }
 
-int rpc_call(const char *name,int ret_params,...) {
+int rpc_call(const char *name,int flags,...) {
   va_list args;
-  va_start(args,ret_params);
-  int ret = rpc_vcall(name,ret_params,args);
+  va_start(args,flags);
+  int ret = rpc_vcall(name,flags,args);
   va_end(args);
   return ret;
 }

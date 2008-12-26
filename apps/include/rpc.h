@@ -27,14 +27,17 @@
 
 #define RPC_SYNOPSIS_MAXLEN NAME_MAX
 
+#define RPC_FLAG_RETPARAMS 1
+#define RPC_FLAG_SENDTO    2
+
 #define rpc_func(func,synopsis,paramsz) rpc_func_create(__STRING(func),func,synopsis,paramsz)
 
 pid_t rpc_curpid;
 
 int rpc_func_create(const char *name,void *func,const char *synopsis,size_t paramsz);
 int rpc_func_destroy(int id);
-int rpc_vcall(const char *name,int ret_params,va_list args);
-int rpc_call(const char *name,int ret_params,...);
+int rpc_vcall(const char *name,int flags,va_list args);
+int rpc_call(const char *name,int flags,...);
 int rpc_vcallself(const char *name,void *func,int ret_params,va_list args);
 int rpc_callself(const char *name,void *func,int ret_params,...);
 int rpc_poll(int id);
