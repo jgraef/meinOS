@@ -16,37 +16,43 @@
 
 #include "cdi.h"
 
-// SCSI-Paket
+/// SCSI-Paket
 struct cdi_scsi_packet {
-  // Buffer zum Senden oder Empfangen von Daten
+  /// Buffer zum Senden oder Empfangen von Daten
   void *buffer;
 
-  // Groesse des Buffers
+  /// Groesse des Buffers
   size_t bufsize;
 
-  // Ob gelesen oder geschrieben werden soll
+  /// Ob gelesen oder geschrieben werden soll
   enum {
     CDI_SCSI_NODATA,
     CDI_SCSI_READ,
     CDI_SCSI_WRITE,
   } direction;
 
-  // SCSI Command
+  /// SCSI Command
   uint8_t command[16];
 
-  // Groesse des SCSI Commands
+  /// Groesse des SCSI Commands
   size_t cmdsize;
 };
 
-// SCSI-Geraet
+/// SCSI-Geraet
 struct cdi_scsi_device {
   struct cdi_device dev;
 };
 
-// SCSI-Driver
+/// SCSI-Treiber
 struct cdi_scsi_driver {
   struct cdi_driver drv;
 
+  /**
+   * Sendet ein SCSI-Paket an das Geraet.
+   *  @param device SCSI-Geraet
+   *  @param packet Paket
+   *  @return SCSI-Fehlerstatus nach der Ausfuehrung des Befehls
+   */
   int (*request)(struct cdi_scsi_device *device,struct cdi_scsi_packet *packet);
 };
 
@@ -80,5 +86,11 @@ void cdi_scsi_driver_destroy(struct cdi_scsi_driver* driver);
  * Registiert einen SCSI-Treiber
  */
 void cdi_scsi_driver_register(struct cdi_scsi_driver* driver);
+
+/**
+ * Initialisiert ein neues SCSI-Geraet
+ *  @note Der Typ der Geraetes muss bereits gesetzt sein
+ */
+void cdi_scsi_device_init(struct cdi_scsi_device* device);
 
 #endif

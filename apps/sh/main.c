@@ -16,6 +16,15 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdio.h>
+
+int main() {
+  FILE *terminal = fopen("/dev/console","r+");
+  fprintf(terminal,"sh: This command shell isn't used anymore.\n");
+  return 0;
+}
+
+#if 0
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -381,3 +390,4 @@ int main(int argc,char *argv[]) {
 
   return 0;
 }
+#endif

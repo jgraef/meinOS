@@ -29,24 +29,10 @@
 #define mem_alloc(size)       ((void*)syscall_call(SYSCALL_MEM_MALLOC,1,size))
 #define mem_getvga()          ((void*)syscall_call(SYSCALL_MEM_GETVGA,0))
 #define USERSPACE_ADDRESS     0x40000000 /* 1GB */
-#define USERSPACE_SIZE        0xBFBFF000 /* 3GB-4MB-4KB */
 
 // VFS
 int vfs_mount(const char *fs,const char *mountpoint,const char *dev,int readonly);
 int vfs_unmount(const char *fs,const char *mountpoint);
-
-// Execute
-struct process_data {
-  int has_stdin;
-  int has_stdout;
-  int has_stderr;
-  int argc;
-  char cmdline[0];
-  char stdio[0];
-  //char enviroment[0];
-} *_process_data;
-
-pid_t execute(const char *path,char *argv[],const char *stdin,const char *stdout,const char *stderr);
 
 // Initialization
 /**

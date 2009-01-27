@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <misc.h>
 #include <unistd.h>
-#include <sys/cdefs.h>
 #include <proc.h>
 #include <rpc.h>
 #include <libgen.h>
@@ -73,18 +72,39 @@ static int init_wait(const char *name) {
   return (t<timeout);
 }
 
-static void init_link(char *dir) {
-  char *dest;
-  asprintf(&dest,"%s%s",BOOT_MP,dir);
-  symlink(dest,dir);
-  free(dest);
+typedef struct {
+  int fh;
+  void *data;
+  enum {
+    EXE_ELF
+  } type;
+} exe_t;
+
+static exe_t *exe_create(const char *file) {
+  exe_t *exe = malloc(sizeof(exe_t*));
+
+  // try ELF
+  exe->data = elf_create(file);
+  if (exe->data!=NULL) {
+    exe->type = EXE_ELF;
+    return exe;
+  }
+  else elf_destroy((elf_t*)exe->data);
+
+  // not an executable
+  free(exe);
+  return NULL;
 }
 
-static void *exe_load(pid_t pid,const char *file) {
-  return elf_load(pid,file);
+static void *exe_load(exe_t *exe,pid_t pid) {
+  if (exe->type==EXE_ELF) return elf_load((elf_t*)exe->data,pid);
+  else return NULL;
 }
 
-/// @todo address space of parent must be RO too! (COW)
+static void exe_destroy(exe_t *exe) {
+  if (exe->type==EXE_ELF) elf_destroy((elf_t*)exe->data);
+}
+
 static pid_t proc_fork(void *child_entry) {
   // Create process
 
@@ -99,62 +119,68 @@ static pid_t proc_fork(void *child_entry) {
     if (pages!=NULL) {
       for (i=0;i<num_pages;i++) {
         int writable,swappable;
-        void *page = proc_memget(rpc_curpid,pages[i],NULL,&writable,&swappable,NULL);
-        if (page!=NULL) proc_memmap(pid,pages[i],page,writable,swappable,1);
-        else proc_memalloc(pid,pages[i],writable,swappable);
+        void *srcp = proc_memget(rpc_curpid,pages[i],NULL,&writable,&swappable,NULL);
+
+        if (srcp!=NULL) {
+          // Map parent's page to init
+          void *srcv = proc_memmap(1,NULL,srcp,0,0,0);
+
+          // Allocate child's page in init's addrspace
+          void *dstv = proc_memmap(1,NULL,NULL,1,0,0);
+          void *dstp = mem_getphysaddr(dstv);
+
+          // Map child's page to child
+          proc_memmap(pid,pages[i],dstp,writable,swappable,0);
+
+          // Copy
+          memcpy(dstv,srcv,PAGE_SIZE);
+
+          proc_memunmap(1,srcv);
+          proc_memunmap(1,dstv);
+        }
+        else proc_memmap(pid,pages[i],NULL,writable,swappable,0);
       }
     }
 
     // Set entrypoint of child
     proc_jump(pid,child_entry);
-
-    proc_run(pid);
   }
 
   return pid;
 }
 
-/// @todo What happens when returning? caller won't request return
-static void proc_exec(const char *file,int var) {
+static int proc_exec(const char *file,int var) {
   // Change process
   char *_file = strdup(file);
-  proc_stop(rpc_curpid);
-  proc_setvar(rpc_curpid,var);
   proc_setname(rpc_curpid,basename(_file));
-
-  // Remove userspace
-  void *i;
-  for (i=(void*)USERSPACE_ADDRESS;i<(void*)(USERSPACE_ADDRESS+USERSPACE_SIZE);i+=PAGE_SIZE) {
-    proc_memfree(rpc_curpid,i);
-  }
+  proc_setvar(rpc_curpid,var);
 
   // Load executable
-  void *entrypoint = exe_load(rpc_curpid,file);
-  proc_jump(rpc_curpid,entrypoint);
-  proc_createstack(rpc_curpid);
+  exe_t *exe = exe_create(file);
+  if (exe!=NULL) {
+    // Remove old addrspace
+    size_t num_pages,i;
+    void **pages = proc_mempagelist(rpc_curpid,&num_pages);
+    if (pages!=NULL) {
+      for (i=0;i<num_pages;i++) proc_memfree(rpc_curpid,pages[i]);
+    }
 
-  proc_run(rpc_curpid);
-}
+    void *entrypoint = exe_load(exe,rpc_curpid);
 
-static pid_t proc_execute(const char *file,int var) {
+    if (entrypoint!=NULL) {
+      proc_jump(rpc_curpid,entrypoint);
+      proc_createstack(rpc_curpid);
+    }
+    else {
+      dbgmsg("failed loading executable!");
+      dbgmsg("TODO: destroy process\n");
+      while (1);
+    }
 
-  // Create process
-  char *_file = strdup(file);
-  pid_t pid = proc_create(basename(_file),getuidbypid(rpc_curpid),getgidbypid(rpc_curpid),rpc_curpid);
-  proc_setvar(pid,var);
-
-  // Load executable
-  void *entrypoint = exe_load(pid,file);
-  if (entrypoint==NULL) {
-    proc_destroy(pid);
-    return -1;
+    exe_destroy(exe);
+    return 0;
   }
-
-  proc_jump(pid,entrypoint);
-  proc_createstack(pid);
-
-  proc_run(pid);
-  return pid;
+  else return errno;
 }
 
 static void init_computer_shutdown() {
@@ -182,26 +208,10 @@ int main(int argc,char *argv[]) {
       vfs_mount(BOOT_FS,BOOT_MP,BOOT_DEV,BOOT_RO);
       sleep(1);
     }
-    else if (strcmp(INIT_PROGRAM(i),"ramdisk")==0) {
-      // Initial mount of root device
-      vfs_mount(ROOT_FS,ROOT_MP,ROOT_DEV,ROOT_RO);
-      // create directories
-      mkdir("/dev",0777);
-      mkdir(BOOT_MP,0777);
-      mkdir("/tmp",0777);
-      mkdir("/mnt",0777);
-      mkdir("/var",0777);
-      mkdir("/var/log",0777);
-      // create symlinks
-      init_link("/bin");
-      init_link("/etc");
-      init_link("/usr");
-    }
   }
 
   rpc_func(proc_fork,"i",sizeof(int));
   rpc_func(proc_exec,"$i",PATH_MAX+sizeof(int));
-  rpc_func(proc_execute,"$i",PATH_MAX+sizeof(int));
   rpc_func_create("computer_shutdown",init_computer_shutdown,"",0);
 
   init_run(INIT2_PROGRAM);

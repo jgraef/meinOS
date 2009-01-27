@@ -23,7 +23,7 @@
 #include <rpc.h>
 #include <limits.h>
 
-#define DEVFS_BUFSIZE (2*PAGE_SIZE)
+#define DEVFS_BUFSIZE PAGE_SIZE
 
 /// Device
 typedef struct devfs_dev_S devfs_dev_t;

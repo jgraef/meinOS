@@ -102,8 +102,10 @@ static int devfs_read(const char *path,char *buf,size_t count,off_t offset,struc
   struct devlist_item *dev = getdev_name((char*)path+1);
   if (dev!=NULL) {
     if (count>dev->bufsz) count = dev->bufsz;
+//dbgmsg("devfs:\tdevfs_read(%s,0x%x,0x%x,0x%x)\n",path,buf,count,offset);
     int ret = rpc_call("devfs_read",RPC_FLAG_SENDTO,dev->owner,dev->id,count,offset);
-    memcpy(buf,dev->shmbuf,count);
+//dbgmsg("devfs:\tret = 0x%x\n",ret);
+    memcpy(buf,dev->shmbuf,ret);
     return ret;
   }
   else return -ENOENT;

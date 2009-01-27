@@ -17,6 +17,7 @@
 */
 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -26,26 +27,25 @@
 #include <syscall.h>
 #include <time.h>
 #include <stdint.h>
+#include <unistd.h>
+
+static llist_t atexit_list;
 
 // some variables/functions needed
-void stdio_init();                                       ///< @see stdio.h
-void env_init();                                         ///< @see env.c
-llist_t atexit_list;                                     ///< @see stdlib.c
-void _close_all_filehandles();                           ///< @see files.c
-void _signal_init();                                     ///< @see signal.c
-void _fs_init(char *_stdin,char *_stdout,char *_stderr); ///< @see apps/lib/stdlibc/files.c
+void _stdio_init();            ///< @see stdio.h
+void _close_all_filehandles(); ///< @see files.c
+void _signal_init();           ///< @see signal.c
+void _fs_init();               ///< @see apps/lib/stdlibc/files.c
 
-void _stdlib_init_pre() {
+void _stdlib_init() {
   rand_seed = rand_seed%RAND_MAX;
   errno = 0;
   atexit_list = llist_create();
+  environ = malloc(sizeof(char*));
+  environ[0] = NULL;
   _signal_init();
-}
-#include <stdio.h>
-void _stdlib_init_post(char *_stdin,char *_stdout,char *_stderr) {
-  env_init();
-  _fs_init(_stdin,_stdout,_stderr);
-  stdio_init();
+  _fs_init();
+  _stdio_init();
 }
 
 /**
@@ -213,4 +213,27 @@ int rand() {
   e ^= (e << 15) & 0xefc60000;
   e ^= (e >> 18);
   return e%RAND_MAX;
+}
+
+/**
+ * Issues a (shell) command
+ *  @param command Shell command
+ * @todo change to /bin/sh or something not fixed (eg. read the SHELL environment variable or use execlp)
+ */
+int system(const char *command) {
+  if (command==NULL) {
+    return execl("/boot/bin/sh","sh","--version",NULL);
+  }
+  else {
+    pid_t pid = fork();
+    if (pid==0) { // child
+      execl("/boot/bin/sh","sh","-c",command,NULL);
+      return 0;
+    }
+    else { // parent
+      int stat = 0;
+      waitpid(pid,&stat,0);
+      return stat;
+    }
+  }
 }

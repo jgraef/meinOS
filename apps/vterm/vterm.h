@@ -19,10 +19,10 @@
 #ifndef _VTERM_H_
 #define _VTERM_H_
 
+#include <sys/types.h>
 #include <llist.h>
 
 // Display
-
 typedef struct {
   unsigned int x,y,w,h;
   unsigned int bpx; // Bits per Pixel/Character
@@ -30,24 +30,27 @@ typedef struct {
     GMODE_TEXT,
     GMODE_GRAPHIC
   } type;
-} gmode_t;
+} vt_gmode_t;
 
 typedef struct {
-  pid_t pid;
-  int did;
   void *buffer;
-  gmode_t mode;
-} display_t;
+  vt_gmode_t mode;
+} vt_display_t;
 
-llist_t displays;
+llist_t vt_displays;
+
+// Keyboard
+typedef struct {
+  
+} vt_keyboard_t;
 
 // VTerm
 typedef struct {
-  int vid;
-  int shortcut;
-} vterm_t;
+  vt_display_t *display;
+} vt_term_t;
 
-llist_t vterms;
-vterm_t *current_vterm;
+vt_term_t vt_shortcuts[10];
+llist_t vt_terminals;
+vt_term_t *vt_curterm;
 
 #endif

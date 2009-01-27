@@ -23,12 +23,12 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <rpc.h>
-#include <sys/ipc.h>
 #include <sys/shm.h>
 #include <limits.h>
-#include <stdio.h>
 #include <path.h>
-#include <misc.h>
+#include <time.h>
+#include <stdio.h>
+#include <pack.h>
 
 #include <fcntl.h>       // open,close
 #include <unistd.h>      // read,write,seek,truncate
@@ -41,7 +41,11 @@
 
 #define getnew_fh() (nextfh++)
 
-#define SHMMEM_SIZE (2*PAGE_SIZE)
+#define SHMMEM_SIZE PAGE_SIZE
+
+#define FLAG_ISSET(x,f) ((x)&(f))
+#define FLAG_SET(x,f)   do { (x) |= (f); } while (0)
+#define FLAG_UNSET(x,f) do { (x) &= ~(f); } while (0)
 
 struct fslist_item {
   pid_t pid;
@@ -55,13 +59,14 @@ struct filelist_item {
   int fs_fh;
   struct dirent dir_cur;
   mode_t mode;
-  int oflag;
   int fh;
   char *path;
   int shmid;
   void *shmbuf;
-  enum { FL_FILE,FL_DIR,FL_PIPE,FL_SOCK } type;
   /// @todo Check for right file types (e.g. in read()/write()) and set them in open()/opendir()/socket()
+  enum { FL_FILE,FL_DIR,FL_SOCK } type;
+  int fdfl;
+  int stfl;
 };
 
 static llist_t filelist;
@@ -78,25 +83,126 @@ struct process_data *_process_data;
 /**
  * Initializes File I/O
  */
-void _fs_init(char *_stdin,char *_stdout,char *_stderr) {
+void _fs_init() {
   filelist = llist_create();
   fslist = llist_create();
   creation_mask = 0777;
+  nextfh = 3;
 
   // Init current workdir
-  char *path = getenv("PATH");
-  if (path==NULL) path = "/";
   memset(&workdir,0,sizeof(workdir));
-  chdir(path);
+  chdir("/");
+}
 
-  // Create stdin, stdout, stderr
-  nextfh = STDIN_FILENO;
-  if (_stdin!=NULL) open(_stdin,O_RDONLY);
-  nextfh = STDOUT_FILENO;
-  if (_stdout!=NULL) open(_stdout,O_WRONLY);
-  nextfh = STDERR_FILENO;
-  if (_stderr!=NULL) open(_stderr,O_WRONLY);
-  nextfh = STDERR_FILENO+1;
+struct fslist_item *fsbyid(id_t fsid) {
+  struct fslist_item *fs;
+  size_t i;
+  for (i=0;(fs = llist_get(fslist,i));i++) {
+    if (fs->id==fsid) return fs;
+  }
+  return NULL;
+}
+
+/**
+ * Pack filehandles
+ *  @param buf Buffer
+ *  @return If buf is NULL return needed size
+ */
+size_t _fs_pack_filehandles(pack_t buf) {
+  struct filelist_item *file;
+  struct fslist_item *fs;
+  size_t i;
+
+  if (buf==NULL) {
+    // Prepare filesystems
+    size_t size = sizeof(size_t)+llist_size(fslist)*sizeof(int)*2; // id, pid
+    for (i=0;(fs = llist_get(fslist,i));i++) size += strlen(fs->mountpoint_str)+1; // mountpoint
+
+    // Prepare files
+    size += sizeof(size_t)+llist_size(filelist)*sizeof(int)*8; // fh, fs_fh, stfl, fdfl, shmid, type, mode
+    for (i=0;(file = llist_get(filelist,i));i++) size += strlen(file->path)+1; // path
+
+    return size;
+  }
+  else {
+    // Pack filesystems
+    packi(buf,llist_size(fslist));
+    for (i=0;(fs = llist_get(fslist,i));i++) {
+      packi(buf,fs->id);
+      packi(buf,fs->pid);
+      packstr(buf,fs->mountpoint_str);
+    }
+
+    // Pack files
+    packi(buf,llist_size(filelist));
+    for (i=0;(file = llist_get(filelist,i));i++) {
+      if (file->type!=FL_DIR && !FLAG_ISSET(file->fdfl,FD_CLOEXEC)) {
+        packi(buf,file->fh);
+        packi(buf,file->fs_fh);
+        packi(buf,file->shmid);
+        packi(buf,file->type);
+        packi(buf,file->mode);
+        packi(buf,file->stfl);
+        packi(buf,file->fdfl);
+        packi(buf,file->fs->id);
+        packstr(buf,file->path);
+      }
+    }
+
+    return 0;
+  }
+}
+
+/**
+ * Unpack filehandles
+ *  @param buf Buffer
+ *  @note This function should be called before any other file function (except _fs_init())
+ */
+void _fs_unpack_filehandles(pack_t buf) {
+  struct filelist_item *file;
+  struct fslist_item *fs;
+  size_t i,files_num,fs_num;
+  char *tmp;
+  id_t id;
+
+  // Unpack filesystems
+  unpacki(buf,&fs_num);
+  for (i=0;i<fs_num;i++) {
+    fs = malloc(sizeof(struct fslist_item));
+    unpacki(buf,&(fs->id));
+    unpacki(buf,&(fs->pid));
+    unpackstr(buf,&tmp);
+    fs->mountpoint = path_parse(tmp);
+    fs->mountpoint_str = strdup(tmp);
+    llist_push(fslist,fs);
+  }
+
+  // Unpack files
+  unpacki(buf,&files_num);
+  for (i=0;i<files_num;i++) {
+    file = malloc(sizeof(struct filelist_item));
+    unpacki(buf,&(file->fh));
+    unpacki(buf,&(file->fs_fh));
+    unpacki(buf,&(file->shmid));
+    unpacki(buf,&(file->type));
+    unpacki(buf,&(file->mode));
+    unpacki(buf,&(file->stfl));
+    unpacki(buf,&(file->fdfl));
+    unpacki(buf,&id);
+    unpackstr(buf,&(file->path));
+    file->shmbuf = shmat(file->shmid,NULL,0);
+    file->fs = fsbyid(id);
+    llist_push(filelist,file);
+  }
+}
+
+/**
+ * Forks filehandles for child
+ *  @param pid PID of Child
+ *  @todo Implement
+ */
+void _fs_fork_filehandles(pid_t pid) {
+
 }
 
 /**
@@ -200,6 +306,61 @@ static char *getabsolutepath(const char *relative) {
 }
 
 /**
+ * File control
+ *  @param fildes File descriptor
+ *  @param cmd Command
+ *  @param ... Optional parameter
+ */
+int fcntl(int fildes, int cmd, ...) {
+  int ret;
+  va_list args;
+  struct filelist_item *file = filebyfh(fildes);
+  va_start(args,cmd);
+  if (file!=NULL) {
+    if (cmd==F_SETFD) {
+      int arg = va_arg(args,int);
+      FLAG_SET(file->fdfl,arg);
+      ret = 0;
+    }
+    else if (cmd==F_SETFL) {
+      int arg = va_arg(args,int);
+      FLAG_SET(file->stfl,arg);
+      ret = 0;
+    }
+  }
+  else {
+    errno = EBADF;
+    ret = -1;
+  }
+  va_end(args);
+  return ret;
+}
+
+/**
+ * Creates an anonymous pipe
+ *  @param fildes File descriptors for in and out
+ *  @return Success?
+ */
+int pipe(int fildes[2]) {
+  char *path;
+
+  // generate path from clock() and pid
+  asprintf(&path,"/tmp/anonpipe_%d_%d",clock(),getpid());
+
+  // open pipe
+  fildes[0] = open(path,O_RDONLY|O_CREAT,S_IFIFO|0777);
+  if (fildes[0]==-1) return -1;
+  fildes[1] = open(path,O_WRONLY);
+  if (fildes[1]==-1) return -1;
+
+  // set flags
+  fcntl(fildes[0],F_SETFD,FD_CLOEXEC);
+  fcntl(fildes[0],F_SETFL,O_NONBLOCK);
+
+  return 0;
+}
+
+/**
  * Gets current workdir
  *  @param buf Buffer to store path in
  *  @param size Size of buffer
@@ -288,13 +449,8 @@ int access(const char *path,int amode) {
   int res;
   char *cpath = getabsolutepath((char*)path);
   struct fslist_item *fs = fsbypath(cpath,0);
-  char *func;
 
-  if (fs!=NULL) {
-    asprintf(&func,"fs_access_%x",fs->pid);
-    res = rpc_call(func,0,fs->id,cpath,amode);
-    free(func);
-  }
+  if (fs!=NULL) res = rpc_call("fs_access",RPC_FLAG_SENDTO,fs->pid,fs->id,cpath,amode);
   else res = -EINVAL;
   free(cpath);
   errno = res<0?-res:0;
@@ -331,12 +487,14 @@ int open(const char *path,int oflag,...) {
         struct filelist_item *new = malloc(sizeof(struct filelist_item));
         new->fs_fh = fh;
         new->fs = fs;
-        new->oflag = oflag;
+        new->stfl = oflag;
+        new->fdfl = 0;
         new->mode = S_IFREG;
         new->fh = getnew_fh();
         new->path = strdup(cpath);
         new->shmid = shmid;
         new->shmbuf = shmbuf;
+        new->type = FL_FILE;
         fh = new->fh;
         llist_push(filelist,new);
       }
@@ -354,8 +512,20 @@ int open(const char *path,int oflag,...) {
 void _close_all_filehandles() {
   struct filelist_item *file;
   while ((file = llist_pop(filelist))!=NULL) {
-    if (S_ISREG(file->mode)) close(file->fh);
-    else if (S_ISDIR(file->mode)) closedir(file);
+    if (file->type==FL_FILE) close(file->fh);
+    else if (file->type==FL_DIR) closedir(file);
+  }
+}
+
+/**
+ * Closes all filehandles that must be closed on exec*()
+ */
+void _fs_cloexec() {
+  struct filelist_item *file;
+  size_t i;
+  for (i=0;(file = llist_get(filelist,i));i++) {
+    if (file->type==FL_DIR) closedir(file);
+    else if (FLAG_ISSET(file->fdfl,FD_CLOEXEC)) close(file->fh);
   }
 }
 
@@ -412,6 +582,7 @@ int dup2(int fildes,int fildes2) {
   return res;
 }
 
+#if 0 /** @todo remove? */
 /**
  * Reads from a file
  *  @param fildes File descriptor
@@ -431,21 +602,116 @@ ssize_t read(int fildes,void *buf,size_t count) {
     size_t off = 0;
 
     while (count_rem>0) {
-      size_t count_cur = count_rem;
-      if (count_cur>SHMMEM_SIZE) count_cur = SHMMEM_SIZE;
-      count_cur = _read(file,buf+off,count_cur);
+      size_t count_sh = count_rem;
+      if (count_sh>SHMMEM_SIZE) count_sh = SHMMEM_SIZE;
+      size_t count_cur = _read(file,buf+off,count_sh);
       if (count_cur==-1) return -1;
       count_rem -= count_cur;
-      if (count_cur==0) break;
       off += count_cur;
+      if (off==0 && FLAG_ISSET(file->stfl,O_NONBLOCK)) sleep(0);
+      else if (count_cur<count_sh) break;
     }
 
-    return count-count_rem;
+    return off;
   }
   else {
     errno = EBADF;
     return -1;
   }
+}
+
+/**
+ * Writes to a file
+ *  @param fildes File descriptor
+ *  @param buf Data to write to file
+ *  @param count How many bytes to write
+ *  @return How many bytes written
+ */
+static ssize_t _write(struct filelist_item *file,const void *buf,size_t count) {
+  ssize_t res;
+  memcpy(file->shmbuf,buf,count);
+  res = rpc_call("fs_write",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,count);
+  return res;
+}
+ssize_t write(int fildes,const void *buf,size_t count) {
+  struct filelist_item *file = filebyfh(fildes);
+  if (file!=NULL) {
+    ssize_t count_rem = count;
+    size_t off = 0;
+    while (count_rem>0) {
+      size_t count_sh = count_rem;
+      if (count_sh>SHMMEM_SIZE) count_sh = SHMMEM_SIZE;
+      size_t count_cur = _write(file,buf+off,count_sh);
+      if (count_cur==-1) return -1;
+      count_rem -= count_cur;
+      off += count_cur;
+      if (off==0 && FLAG_ISSET(file->stfl,O_NONBLOCK)) sleep(0);
+      else if (count_cur<count_sh) break;
+    }
+    return off;
+  }
+  else {
+    errno = EBADF;
+    return -1;
+  }
+}
+#endif
+
+/**
+ * Reads from a file
+ *  @param fildes File descriptor
+ *  @param buf Buffer to store read data in
+ *  @param count How many bytes to read
+ *  @return How many bytes read
+ */
+static ssize_t _read(struct filelist_item *file,void *buf,size_t count) {
+  ssize_t res = rpc_call("fs_read",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,count);
+  if (res>0) memcpy(buf,file->shmbuf,res>SHMMEM_SIZE?SHMMEM_SIZE:res);
+  return res;
+}
+ssize_t read(int fildes,void *buf,size_t count) {
+  struct filelist_item *file = filebyfh(fildes);
+  if (file!=NULL) {
+    size_t pos = 0;
+
+    while (pos<count) {
+      size_t count_cur = SHMMEM_SIZE;
+      if (count-pos<SHMMEM_SIZE) count_cur = count-pos;
+
+      count_cur = _read(file,buf+pos,count_cur);
+
+      if (count_cur==-1) return -1;
+      if (count_cur==0) break;
+
+      pos += count_cur;
+    }
+
+    return pos;
+  }
+  else {
+    errno = EBADF;
+    return -1;
+  }
+}
+
+/**
+ * Reads from a file at a given offset
+ *  @param fildes File descriptor
+ *  @param buf Buffer to store read data in
+ *  @param count How many bytes to read
+ *  @param offset Offset to begin reading at
+ *  @return How many bytes read
+ */
+ssize_t pread(int fildes,void *buf,size_t count,off_t offset) {
+  int ret;
+  off_t oldoff;
+
+  oldoff = lseek(fildes,0,SEEK_CUR);
+  lseek(fildes,offset,SEEK_SET);
+  ret = read(fildes,buf,count);
+  lseek(fildes,oldoff,SEEK_SET);
+
+  return ret;
 }
 
 /**
@@ -481,6 +747,26 @@ ssize_t write(int fildes,const void *buf,size_t count) {
     errno = EBADF;
     return -1;
   }
+}
+
+/**
+ * Writes to a file at a given offset
+ *  @param fildes File descriptor
+ *  @param buf Data to write to file
+ *  @param count How many bytes to write
+ *  @param offset Offset to begin writing at
+ *  @return How many bytes written
+ */
+ssize_t pwrite(int fildes,const void *buf,size_t count,off_t offset) {
+  int ret;
+  off_t oldoff;
+
+  oldoff = lseek(fildes,0,SEEK_CUR);
+  lseek(fildes,offset,SEEK_SET);
+  ret = write(fildes,buf,count);
+  lseek(fildes,oldoff,SEEK_SET);
+
+  return ret;
 }
 
 /**
@@ -606,7 +892,8 @@ DIR *opendir(const char *path) {
         new = malloc(sizeof(struct filelist_item));
         new->fs_fh = dh;
         new->fs = fs;
-        new->oflag = 0;
+        new->stfl = 0;
+        new->fdfl = 0;
         new->mode = S_IFDIR;
         new->fh = 0; // Dir handles don't need IDs
         new->path = strdup(cpath);

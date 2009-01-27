@@ -19,16 +19,19 @@
 #include <sys/types.h>
 #include <llist.h>
 
-vterm_t *vterm_create(int shortcut,int did) {
-  static int next_vterm_id = 0;
-  vterm_t *vterm = malloc(sizeof(vterm_t));
-  vterm->vid = next_vterm_id++;
-  vterm->shortcut = shortcut;
-  llist_push(vterms,vterm);
+void vt_init() {
+  memset(vt_shortcuts,0,sizeof(vt_shortcuts));
 }
 
-void vterm_destroy(vterm_t *vterm) {
-  llist_destroy(vterms,llist_find(vterms,vterm));
-  free(vterm);
+vt_term_t *vt_term_create(int shortcut) {
+  vt_term_t *term = malloc(sizeof(vterm_t));
+  if (shortcut>=0 && shortcut<10) vt_shortcuts[shortcut] = term;
+  llist_push(vt_terminals,term);
+  return term;
+}
+
+void vt_term_destroy(vt_term_t *term) {
+  llist_remove(vt_terminals,llist_find(vt_terminals,term));
+  free(term);
 }
 

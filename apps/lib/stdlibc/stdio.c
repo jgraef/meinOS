@@ -51,7 +51,7 @@ static void stdio_exit() {
 /**
  * Initializes stdio
  */
-void stdio_init() {
+void _stdio_init() {
   stdin = create_stream(STDIN_FILENO,O_RDONLY);
   stdout = create_stream(STDOUT_FILENO,O_WRONLY);
   stderr = create_stream(STDERR_FILENO,O_WRONLY);

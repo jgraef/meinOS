@@ -80,5 +80,7 @@ int main() {
     else devices[i] = NULL;
   }
 
+  devfs_mainloop();
+
   return 0;
 }

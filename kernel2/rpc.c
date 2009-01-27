@@ -128,7 +128,7 @@ int rpc_function_call(int id,void *params,int *ret,void *ret_params,int *error) 
     new->params = memcpy(malloc(func->params_size),params,func->params_size);
     new->error = error;
     llist_push(func->calls,new);
-    *error = 0;
+    if (error!=NULL) *error = 1;
     proc_wake(func->owner);
     *(interrupt_curregs.eax) = 0;
     proc_sleep(proc_current);
@@ -141,12 +141,9 @@ int rpc_function_call(int id,void *params,int *ret,void *ret_params,int *error) 
  * Destroys a RPC Call
  *  @param call RPC Call
  *  @return Success?
- *  @todo set *(call->error) in callers address space
  */
 int rpc_call_destroy(rpc_call_t *call) {
   free(call->params);
-  proc_wake(call->caller);
-  //*(call->error) = 1;
   free(call);
   return 0;
 }
@@ -190,10 +187,10 @@ int rpc_call_return(int id,int ret,void *ret_params) {
         memcpy(call->ret_params,buf,func->params_size);
       }
       else memuser_load_addrspace(call->caller->addrspace);
-      *(call->ret) = ret;
-      *(call->error) = 0;
+      if (call->ret!=NULL) *(call->ret) = ret;
+      if (call->error!=NULL) *(call->error) = 0;
+      memuser_load_addrspace(proc_current->addrspace);
       proc_wake(call->caller);
-      memuser_load_addrspace(proc_current->addrspace); // done by proc_wake(), too
       rpc_call_destroy(call);
       func->current = NULL;
       return 0;

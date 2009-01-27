@@ -18,14 +18,29 @@
 
 #include <sys/types.h>
 #include <rpc.h>
+#include <proc.h>
 
 #include <stdio.h>
 
 int *_fork_stack;
 pid_t _fork_child_entry();
+void _fs_fork_filehandles(pid_t pid);
 
 pid_t fork() {
+  pid_t pid;
+
+  // save stack
   asm("mov %%ebp,%0":"=r"(_fork_stack):);
-  //printf("test: stack: 0x%x\n",_fork_stack);
-  return rpc_call("proc_fork",0,_fork_child_entry);
+
+  // fork
+  if ((pid = rpc_call("proc_fork",RPC_FLAG_SENDTO,1,_fork_child_entry))!=-1) {
+    // fork filehandles
+    _fs_fork_filehandles(pid);
+
+    // run child
+    proc_run(pid);
+
+    return pid;
+  }
+  else return -1;
 }

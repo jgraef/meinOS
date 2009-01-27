@@ -46,16 +46,16 @@ static __inline__ void proc_setname(pid_t pid,const char *name) {
   syscall_call(SYSCALL_PROC_SETNAME,2,pid,name);
 }
 
-static __inline__ int proc_memmap(pid_t pid,void *virt,void *phys,int writable,int swappable,int cow) {
-  return syscall_call(SYSCALL_PROC_MEMMAP,6,pid,virt,phys,writable,swappable,cow);
+static __inline__ void *proc_memmap(pid_t pid,void *virt,void *phys,int writable,int swappable,int cow) {
+  return (void*)syscall_call(SYSCALL_PROC_MEMMAP,6,pid,virt,phys,writable,swappable,cow);
 }
 
-static __inline__ int proc_memalloc(pid_t pid,void *virt,int writable,int swappable) {
-  return syscall_call(SYSCALL_PROC_MEMALLOC,4,pid,virt,writable,swappable);
+static __inline__ void *proc_memalloc(pid_t pid,void *virt,int writable,int swappable) {
+  return (void*)syscall_call(SYSCALL_PROC_MEMALLOC,4,pid,virt,writable,swappable);
 }
 
 static __inline__ int proc_memunmap(pid_t pid,void *virt) {
-  return syscall_call(SYSCALL_PROC_MEMMAP,2,pid,virt);
+  return syscall_call(SYSCALL_PROC_MEMUNMAP,2,pid,virt);
 }
 
 static __inline__ int proc_memfree(pid_t pid,void *virt) {
@@ -112,5 +112,7 @@ static __inline__ pid_t getchildbypid(pid_t pid,size_t i) {
 
 char *getname(pid_t pid);
 void **proc_mempagelist(pid_t pid,size_t *_num_pages);
+int proc_pack_procdata(char **argv,char **env,char *cwd,mode_t cmask);
+int proc_unpack_procdata(int var,int *argc,char ***argv);
 
 #endif

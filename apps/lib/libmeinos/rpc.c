@@ -40,11 +40,13 @@ int rpc_func_destroy(int id) {
 }
 
 int rpc_vcall(const char *name,int flags,va_list args) {
-  int ret,id,error;
+  int ret,id;
+  int error = 1;
   char synopsis[RPC_SYNOPSIS_MAXLEN];
-  size_t paramsz,i;
+  size_t paramsz,i,try;
   pack_t params;
   int ret_params = (flags&RPC_FLAG_RETPARAMS);
+  int noret = (flags&RPC_FLAG_NORET);
   pid_t sendto = (flags&RPC_FLAG_SENDTO)?va_arg(args,pid_t):0;
 
   id = syscall_call(SYSCALL_RPC_GETINFO,8,-1,name,sendto,0,&paramsz,synopsis,RPC_SYNOPSIS_MAXLEN,0);
@@ -65,9 +67,13 @@ int rpc_vcall(const char *name,int flags,va_list args) {
     }
 
     // call function
-    if (syscall_call(SYSCALL_RPC_CALL,5,id,pack_data(params),&ret,ret_params?pack_data(params):NULL,&error)==0) error = 1;
+    for (try=0;try<RPC_TRIES_MAXNUM && error;try++) {
+      syscall_call(SYSCALL_RPC_CALL,5,id,pack_data(params),noret?NULL:&ret,(ret_params && !noret)?pack_data(params):NULL,noret?NULL:&error);
+      //dbgmsg("rpc[%d]:\t %s %d->%d ret=%d error=%d\n",try,name,getpid(),sendto,ret,error);
+    }
+    while (error!=0);
 
-    if (error==0 || 1) { /// @todo fix error detection
+    if (error==0) {
       if (ret_params) {
         pack_reset(params);
         for (i=0;synopsis[i];i++) {
@@ -88,12 +94,13 @@ int rpc_vcall(const char *name,int flags,va_list args) {
       }
       errno = 0;
 
-
       free(param_list);
       pack_free(params);
       return ret;
     }
-    else pack_free(params);
+    else {
+      pack_free(params);
+    }
   }
   errno = EINVAL;
   return -1;

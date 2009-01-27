@@ -27,8 +27,11 @@
 
 #define RPC_SYNOPSIS_MAXLEN NAME_MAX
 
+#define RPC_TRIES_MAXNUM   100
+
 #define RPC_FLAG_RETPARAMS 1
 #define RPC_FLAG_SENDTO    2
+#define RPC_FLAG_NORET     4
 
 #define rpc_func(func,synopsis,paramsz) rpc_func_create(__STRING(func),func,synopsis,paramsz)
 

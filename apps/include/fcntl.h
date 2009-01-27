@@ -59,6 +59,8 @@
 #define F_GETOWN  9
 #define F_SETOWN 10
 
+#define FD_CLOEXEC 1
+
 struct flock {
   short l_type;
   short l_whence;
@@ -67,6 +69,7 @@ struct flock {
   pid_t l_pid;
 };
 
+int fcntl(int fildes,int cmd,...);
 int open(const char *path,int oflag,...);
 
 static inline int creat(const char *path,mode_t mode) {

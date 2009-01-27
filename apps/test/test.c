@@ -16,6 +16,39 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/types.h>
+#include <unistd.h>
+#include <misc.h>
+#include <errno.h>
+#include <string.h>
+
 int main() {
-  return 0;
+  pid_t child;
+dbgmsg("test: Hello World\n");
+while (1);
+  int p[2];
+  if (pipe(p)==0) {
+    dbgmsg("p[0] = %d\n",p[0]);
+    dbgmsg("p[1] = %d\n",p[1]);
+
+    if ((child = fork())==0) {
+      dbgmsg("writing to pipe\n");
+      //write(p[1],"Hello World\n",16);
+      dbgmsg("write\n");
+    }
+    else {
+      char buf[16];
+
+      dbgmsg("reading from pipe\n");
+      read(p[0],buf,16);
+      buf[15] = 0;
+      dbgmsg("read: %s\n",buf);
+    }
+
+    dbgmsg("reached end\n");
+  }
+  else dbgmsg("pipe() failed: (#%d) %s\n",errno,strerror(errno));
+
+  while (1);
+
 }

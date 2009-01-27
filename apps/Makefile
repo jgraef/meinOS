@@ -1,6 +1,32 @@
 -include ../Makefile.config
 
 all:
+
+	### TODO: FIXME #####
+	make -C beep/ clean
+	make -C test/ clean
+	make -C sh/ clean
+	make -C com/ clean
+	make -C devfs/ clean
+	make -C floppy/ clean
+	make -C vfs/ clean
+	make -C init/ clean
+	make -C dma/ clean
+	make -C ramdisk clean
+	make -C ata/ clean
+	make -C cdrom/ clean
+	make -C mount/ clean
+	make -C iso9660/ clean
+	make -C console/ clean
+	make -C pci/ clean
+	make -C psdev/ clean
+	make -C login/ clean
+	make -C gzip/ clean
+	make -C utils/ clean
+	make -C cirrus/ clean
+	make -C fat/ clean
+	#####################
+
 	cp -R include/* $(GCC_TOOLCHAIN)/include/
 
 	make -C lib/

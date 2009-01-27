@@ -123,3 +123,7 @@ void cdi_scsi_driver_register(struct cdi_scsi_driver* driver) {
     cdi_list_push(cdi_scsi_devices,dev);
   }
 }
+
+void cdi_scsi_device_init(struct cdi_scsi_device* device) {
+
+}

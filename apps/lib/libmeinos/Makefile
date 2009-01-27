@@ -2,10 +2,8 @@
 
 OBJFILES = cmos.o \
            devfs.o \
-           execute.o \
            irq_asm.o \
            irq.o \
-           llist2.o \
            lock.o \
            misc.o \
            path.o \
@@ -28,8 +26,6 @@ all: ../libmeinos.a
 cmos.o: cmos.c
 	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
 devfs.o: devfs.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-execute.o: execute.c
 	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
 irq_asm.o: irq.asm
 	$(LIBS_ASM) -f elf -o $@ $^

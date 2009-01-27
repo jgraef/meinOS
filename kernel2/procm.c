@@ -629,21 +629,23 @@ int proc_destroy_syscall(pid_t proc_pid) {
  *  @return Success?
  *  @todo remove memuser_load_addrspace()
  */
-int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,int cow) {
+void *proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,int cow) {
   if (proc_current->system) {
     proc_t *proc = proc_find(proc_pid);
     if (proc!=NULL) {
+      if (virt==NULL) virt = memuser_findvirt(proc->addrspace,1);
+      if (phys==NULL) phys = memphys_alloc();
       pte_t pte = paging_getpte_pd(virt,proc->addrspace->pagedir);
       if (!pte.exists) {
         memuser_load_addrspace(proc->addrspace);
         paging_map_pd(virt,phys,1,writable && !cow,swappable,cow && writable,proc->addrspace->pagedir);
         memuser_load_addrspace(proc_current->addrspace);
         llist_push(proc->addrspace->pages_loaded,virt);
-        return 0;
+        return virt;
       }
     }
   }
-  return -1;
+  return NULL;
 }
 
 /**
@@ -653,14 +655,10 @@ int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,
  *  @param writable Whether to alloc wirtable memory
  *  @param swappable Whether memory should be swappable
  *  @return Success?
+ *  @todo remove
  */
 int proc_memalloc(pid_t proc_pid,void *virt,int writable,int swappable) {
-  void *page = memphys_alloc();
-  if (proc_memmap(proc_pid,virt,page,writable,swappable,0)==0) return 0;
-  else {
-    memphys_free(page);
-    return -1;
-  }
+  return proc_memmap(proc_pid,virt,NULL,writable,swappable,0)!=NULL?0:-1;
 }
 
 /**
@@ -676,7 +674,9 @@ int proc_memunmap(pid_t proc_pid,void *virt) {
       memuser_load_addrspace(proc->addrspace);
       paging_unmap(virt);
       memuser_load_addrspace(proc_current->addrspace);
+      llist_remove(proc->addrspace->pages_loaded,llist_find(proc->addrspace->pages_loaded,virt));
       llist_remove(proc->addrspace->pages_imaginary,llist_find(proc->addrspace->pages_imaginary,virt));
+      llist_remove(proc->addrspace->pages_swapped,llist_find(proc->addrspace->pages_swapped,virt));
       return 0;
     }
   }

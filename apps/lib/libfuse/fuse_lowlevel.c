@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/cdefs.h>
+#include <string.h>
 #include <llist.h>
 #include <rpc.h>
 #include <errno.h>
@@ -82,6 +82,7 @@ static struct fuse_file *fuse_file_find(struct fuse *fuse,int fh) {
   return NULL;
 }
 
+/// @todo Set context in fs_* functions
 void fuse_set_context(struct fuse *fuse) {
   fuse->context->pid = rpc_curpid;
   fuse->context->uid = getuidbypid(rpc_curpid);

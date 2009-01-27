@@ -15,7 +15,6 @@ module /bin/devfs
 module /bin/ata
 module /bin/cdrom
 module /bin/iso9660
-module /bin/ramdisk
 module /bin/console
 module /bin/init2
 boot

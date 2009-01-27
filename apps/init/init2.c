@@ -22,16 +22,31 @@
 #include <limits.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define INIT_D "/boot/etc/init.d/initd.conf"
 
 int main() {
+
+
+
+  while (1);
+
   FILE *fd = fopen(INIT_D,"r");
+  int flags = fcntl(fileno(fd),F_GETFD);
+  fcntl(fileno(fd),flags|FD_CLOEXEC);
+
   if (fd!=NULL) {
     char buf[1024];
     while (!feof(fd)) {
       fgets(buf,1024,fd);
       if (buf[0]!=0 && buf[0]!='\n' && buf[0]!='#') {
+        dbgmsg("system(%s) = %d\n",buf,system(buf));
+while (1);
+      }
+
+#if 0 /** @todo remove */
         size_t i;
         size_t j = 0;
         size_t k = 0;
@@ -52,11 +67,11 @@ int main() {
         argv[k][i-j] = 0;
         argv[k+1] = NULL;
 
-        /// @todo Maybe set stdin,stdout,stderr to /dev/console or some logfile
-        execute(argv[0],argv,NULL,NULL,NULL);
+        if (fork()==0) execv(argv[0],argv);
+
         for (i=0;argv[i];i++) free(argv[i]);
         free(argv);
-      }
+#endif
     }
     fclose(fd);
     return 0;

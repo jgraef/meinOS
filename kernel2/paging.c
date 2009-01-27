@@ -311,9 +311,10 @@ int paging_map_pd(void *virt,void *phys,int user,int writable,int swappable,int 
  *  @return Physical address
  */
 void *paging_unmap(void *virt) {
-  void *addr = PAGE2ADDR(paging_getpte(virt).page);
-  pte_t pte;
-  if (!pte.in_memory) addr = NULL;
+  void *addr;
+  pte_t pte = paging_getpte(virt);
+  if (pte.in_memory) addr = PAGE2ADDR(pte.page);
+  else addr = NULL;
   memset(&pte,0,sizeof(pte));
   paging_setpte(virt,pte);
   return addr;

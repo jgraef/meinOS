@@ -26,6 +26,37 @@
 
 #include "exe_elf.h"
 
+#if 0 /** @todo remove? */
+static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t file_addr,size_t file_size,int writable) {
+  if (mem_addr<(void*)USERSPACE_ADDRESS) return -1;
+  size_t i;
+  int ret = 0;
+  pid_t own_pid = getpid();
+
+  lseek(fh,file_addr,SEEK_SET);
+
+  for (i=0;i<mem_size;i+=PAGE_SIZE) {
+    void *buf = mem_alloc(PAGE_SIZE);
+    size_t cur_count = i>file_size?0:(i+PAGE_SIZE>file_size?file_size%PAGE_SIZE:PAGE_SIZE);
+    if (cur_count>0) {
+      read(fh,buf,cur_count);
+      dbgmsg("Loading from disk: 0x%x 0x%x 0x%x\n",mem_addr+i,file_addr+i,cur_count);
+    }
+    else {
+      memset(buf,0,PAGE_SIZE);
+      dbgmsg("Zeroing: 0x%x\n",mem_addr+i);
+    }
+    if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)!=NULL) proc_memunmap(own_pid,buf);
+    else {
+      proc_memfree(own_pid,buf);
+      ret = -1;
+      break;
+    }
+  }
+  return ret;
+}
+#endif
+
 /**
  * Validates ELF header
  *  @param header Pointer to ELF header
@@ -53,7 +84,7 @@ static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t fi
     size_t cur_count = i>file_size?0:(i+PAGE_SIZE>file_size?file_size%PAGE_SIZE:PAGE_SIZE);
     if (cur_count>0) read(fh,buf,cur_count);
     else memset(buf,0,PAGE_SIZE);
-    if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)==0) proc_memunmap(own_pid,buf);
+    if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)!=NULL) proc_memunmap(own_pid,buf);
     else {
       proc_memfree(own_pid,buf);
       ret = -1;
@@ -63,35 +94,55 @@ static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t fi
   return ret;
 }
 
-void *elf_load(pid_t pid,const char *file) {
+elf_t *elf_create(const char *file) {
   int fh = open(file,O_RDONLY);
   if (fh!=-1) {
-    size_t i;
-    void *entrypoint;
     elf_header_t header;
-    elf_progheader_t *progheader;
 
-    // Header
+    // load header
     read(fh,&header,sizeof(header));
     if (!elf_validate(&header)) return NULL;
-    entrypoint = (void*)(header.entry);
 
-    // Program Headers
-    progheader = malloc(sizeof(elf_progheader_t)*header.phnum);
-    lseek(fh,header.phoff,SEEK_SET);
-    read(fh,progheader,sizeof(elf_progheader_t)*header.phnum);
-    for (i=0;i<header.phnum;i++) {
-      if (progheader[i].type==PT_LOAD) {
-        if (elf_loadseg(pid,fh,(void*)(progheader[i].vaddr),progheader[i].memsz,progheader[i].offset,progheader[i].filesz,(progheader[i].flags&PF_W)==PF_W)==-1) {
-          entrypoint = NULL;
-          break;
-        }
-      }
-    }
+    // create elf
+    elf_t *elf = malloc(sizeof(elf_t));
+    memcpy(&(elf->header),&header,sizeof(header));
+    elf->fh = fh;
 
-    free(progheader);
-    close(fh);
-    return entrypoint;
+    return elf;
   }
   else return NULL;
+}
+
+void elf_destroy(elf_t *elf) {
+  close(elf->fh);
+  free(elf);
+}
+
+void *elf_load(elf_t *elf,pid_t pid) {
+  size_t i;
+  elf_progheader_t progheader;
+
+  // Program Headers
+  for (i=0;i<elf->header.phnum;i++) {
+    lseek(elf->fh,elf->header.phoff+i*sizeof(elf_progheader_t),SEEK_SET);
+    read(elf->fh,&progheader,sizeof(elf_progheader_t));
+
+    /** @todo remove
+    dbgmsg("[Program Header %d]\n",i);
+    dbgmsg("ph.type   = 0x%x\n",progheader.type);
+    dbgmsg("ph.offset = 0x%x\n",progheader.offset);
+    dbgmsg("ph.vaddr  = 0x%x\n",progheader.vaddr);
+    dbgmsg("ph.paddr  = 0x%x\n",progheader.paddr);
+    dbgmsg("ph.filesz = 0x%x\n",progheader.filesz);
+    dbgmsg("ph.memsz  = 0x%x\n",progheader.memsz);
+    dbgmsg("ph.flags  = 0x%x\n",progheader.flags);
+    dbgmsg("ph.align  = 0x%x\n\n",progheader.align); */
+
+    if (progheader.type==PT_LOAD) {
+      if (progheader.align!=PAGE_SIZE) return NULL;
+      if (elf_loadseg(pid,elf->fh,(void*)(progheader.vaddr),progheader.memsz,progheader.offset,progheader.filesz,(progheader.flags&PF_W)==PF_W)==-1) return NULL;
+    }
+  }
+
+  return (void*)(elf->header.entry);
 }

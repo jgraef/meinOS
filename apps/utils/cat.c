@@ -36,7 +36,6 @@ static void usage(char *prog,int ret) {
   fprintf(stream,"\t-T\tOutput tabulator as ^I\n");
   fprintf(stream,"\t-u\tignored\n");
   fprintf(stream,"\t-v\tUse ^- and M-notation, except for linefeed and tabulator\n");
-
   fprintf(stream,"\t-h\tdisplay this help and exit\n");
   fprintf(stream,"\t-V\toutput version information and exit\n");
   exit(ret);

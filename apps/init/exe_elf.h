@@ -107,6 +107,13 @@ typedef struct {
   uint32_t align;
 } __attribute__ ((packed)) elf_progheader_t;
 
-void *elf_load(pid_t pid,const char *file);
+typedef struct {
+  elf_header_t header;
+  int fh;
+} elf_t;
+
+elf_t *elf_create(const char *file);
+void elf_destroy(elf_t *elf);
+void *elf_load(elf_t *elf,pid_t pid);
 
 #endif

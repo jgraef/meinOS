@@ -157,7 +157,7 @@ int proc_pop(proc_t *proc);
 void proc_idle();
 pid_t proc_create_syscall(char *name,uid_t uid,gid_t gid,pid_t parent_pid);
 int proc_destroy_syscall(pid_t proc_pid);
-int proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,int cow);
+void *proc_memmap(pid_t proc_pid,void *virt,void *phys,int writable,int swappable,int cow);
 int proc_memunmap(pid_t proc_pid,void *virt);
 int proc_memfree(pid_t proc_pid,void *virt);
 void *proc_memget(pid_t proc_pid,void *virt,int *exists,int *writable,int *swappable,int *cow);

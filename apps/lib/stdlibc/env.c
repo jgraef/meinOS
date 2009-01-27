@@ -16,40 +16,48 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
-#include <llist.h>
+#include <unistd.h>
 #include <errno.h>
+#include <stdio.h>
 
-struct envvar {
-  char *name;
-  char *val;
-};
-
-static llist_t envvars;
-
-void env_init() {
-  envvars = llist_create();
-  /// @todo load ENV variables
+static size_t sizenv() {
+  size_t i;
+  for (i=0;environ[i];i++);
+  return i;
 }
 
-static int _findenv(const char *name) {
-  if (name!=NULL && strlen(name)!=0 && strchr(name,'=')==NULL) {
-    int i;
-    struct envvar *env;
-    for (i=0;(env = llist_get(envvars,i));i++) {
-      if (strcmp(env->name,name)==0) return i;
+static char *findenv(const char *name,size_t *idx) {
+  size_t i;
+  for (i=0;environ[i];i++) {
+    if (strcmp(environ[i],name)) {
+      if (idx!=NULL) *idx = i;
+      return environ[i];
     }
   }
-  errno = EINVAL;
-  return -1;
+  return NULL;
 }
-#define findenv(name) llist_get(envvars,_findenv(name))
 
 char *getenv(const char *name) {
-  struct envvar *env = findenv(name);
-  if (env==NULL) return NULL;
-  else return env->val;
+  if (name==NULL) {
+    errno = EINVAL;
+    return NULL;
+  }
+  if (name[0]==0 && strchr(name,'=')!=NULL) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  char *env = findenv(name,NULL);
+  if (env!=NULL) {
+    char *val = strchr(env,'=');
+    if (val!=NULL) return val+1;
+    else errno = EINVAL;
+  }
+  else errno = ENOENT;
+  return NULL;
 }
 
 /**
@@ -60,18 +68,31 @@ char *getenv(const char *name) {
  *  @return 0=success; -1=failure
  */
 int setenv(const char *envname, const char *envval, int overwrite) {
-  struct envvar *env = findenv(envname);
+  size_t i;
+  char *env;
+
+  if (envname==NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (envname[0]==0 && strchr(envname,'=')!=NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  env = findenv(envname,&i);
+  if (env!=NULL && !overwrite) return -1;
+
   if (env==NULL) {
-    env = malloc(sizeof(struct envvar));
-    env->name = strdup(envname);
-    env->val = strdup(envval);
-    llist_push(envvars,env);
+    i = sizenv();
+    realloc(environ,(i+2)*sizeof(char*));
+    environ[i+1] = NULL;
   }
-  else if (overwrite) {
-    free(env->val);
-    env->val = strdup(envval);
-  }
-  else return -1;
+  else free(env);
+
+  asprintf(&env,"%s=%s\n",envname,envval);
+  environ[i] = env;
+
   return 0;
 }
 
@@ -81,16 +102,29 @@ int setenv(const char *envname, const char *envval, int overwrite) {
  *  @return 0=success; -1=failure
  */
 int unsetenv(const char *name) {
-  int i = _findenv(name);
-  if (i!=-1) {
-    struct envvar *env = llist_remove(envvars,i);
-    free(env->name);
-    free(env->val);
-    free(env);
-    return 0;
-  }
-  else {
+  size_t i;
+  char *env;
+  size_t size;
+
+  if (name==NULL) {
     errno = EINVAL;
     return -1;
   }
+  if (name[0]==0 && strchr(name,'=')!=NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  env = findenv(name,&i);
+  if (env==NULL) {
+    errno = ENOENT;
+    return -1;
+  }
+
+  free(env);
+  size = sizenv();
+  memmove(environ+i,environ+i+1,size-i);
+  //environ = realloc(environ,size-1);
+
+  return 0;
 }

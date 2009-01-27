@@ -67,6 +67,10 @@
 /// @todo When symlinks are (completely) implemented, this has to be rewritten
 #define lstat(path,buf) stat(path,buf)
 
+char *optarg;
+int optind,opterr,optopt;
+char **environ;
+
 int chown(const char *file,uid_t uid,gid_t gid);
 int fchown(int fildes,uid_t uid,gid_t gid);
 int symlink(const char *path1,const char *path2);
@@ -81,11 +85,14 @@ int dup2(int fildes,int fildes2);
 int close(int fildes);
 ssize_t read(int fildes,void *buf,size_t nbyte);
 ssize_t write(int fildes,const void *buf,size_t count);
+ssize_t pread(int fildes,void *buf,size_t count,off_t offset);
+ssize_t pwrite(int fildes,const void *buf,size_t count,off_t offset);
 off_t lseek(int fildes,off_t offset,int whence);
 int unlink(const char *path);
 int rmdir(const char *path);
 int ftruncate(int fildes,off_t length);
 int truncate(const char *path,off_t length);
+int pipe(int fildes[2]);
 
 int gethostname(char *, size_t); ///< @todo implement uname(...);
 void swab(const void *buf1,void *buf2,ssize_t size);
@@ -93,12 +100,13 @@ unsigned sleep(unsigned sec);
 int usleep(useconds_t usec);
 
 int getopt(int argc, char *const *argv, const char *optstring);
-extern char *optarg;
-extern int optind,opterr,optopt;
 
-extern char **environ;
-int execv(const char *path,const char *argv[]);
-int execve(const char *path,const char *argv[],const char *env);
+int execl(const char *path, ... /*, (char *)0 */);
+int execv(const char *path, char *const argv[]);
+int execle(const char *path, ... /*, (char *)0, char *const envp[]*/);
+int execve(const char *path, char *const argv[], char *const envp[]);
+int execlp(const char *file, ... /*, (char *)0 */);
+int execvp(const char *file, char *const argv[]);
 
 pid_t fork();
 

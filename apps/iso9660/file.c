@@ -30,8 +30,8 @@
  *  @return How many bytes read
  */
 size_t iso9660_fs_file_read(struct cdi_fs_stream *stream,uint64_t start,size_t size,void *buffer) {
-  debug("iso9660_fs_file_read(0x%x,0x%x,0x%x,0x%x,0x%x)\n",stream,start,size,buffer);
   struct iso9660_fs_res *res = (struct iso9660_fs_res*)stream->res;
+  debug("iso9660_fs_file_read(%s,0x%x,0x%x,0x%x,0x%x)\n",res->res.name,start,size,buffer);
 
   if (start>res->data_size) return 0;
   if (start+size>res->data_size) size = res->data_size-start;

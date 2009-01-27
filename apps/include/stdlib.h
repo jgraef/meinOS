@@ -47,6 +47,7 @@ void exit(int result);
 void _Exit(int result);
 void abort();
 int atexit(void (*function)(void));
+int system(const char *command);
 
 int atoi(const char *str);
 

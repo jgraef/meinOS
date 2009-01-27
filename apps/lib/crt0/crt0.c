@@ -25,11 +25,10 @@
 #include <misc.h>
 
 int main(int argc,char *argv[]);
-void _stdlib_init_pre();  ///< @see apps/lib/stdlibc/stdlib.c
-void _stdlib_init_post(char *_stdin,char *_stdout,char *_stderr); ///< @see apps/lib/stdlibc/stdlib.c
-void _libmeinos_init();   ///< @see apps/lib/libmeinos/misc.c
+void _stdlib_init();     ///< @see apps/lib/stdlibc/stdlib.c
+void _libmeinos_init();  ///< @see apps/lib/libmeinos/misc.c
 
-static int var;
+/*static int var;
 
 static void get_cmdline(struct process_data *data,char ***_argv,int *_argc,char **_stdin,char **_stdout,char **_stderr) {
   int argc = data->argc;
@@ -71,23 +70,22 @@ static void crt0_quit() {
     shmdt(_process_data);
     shmctl(var,IPC_RMID,NULL);
   }
-}
+}*/
 
 void _start() {
   char *backup_argv[] = { NULL };
   char **argv = backup_argv;
   int argc = 0;
-  char *_stdin = NULL;
-  char *_stdout = NULL;
-  char *_stderr = NULL;
 
   // initialize libs
-  _stdlib_init_pre();
+  _stdlib_init();
   _libmeinos_init();
 
   // get process data
-  var = syscall_call(SYSCALL_PROC_GETVAR,1,getpid());
-  if (var!=-1) {
+  int var = syscall_call(SYSCALL_PROC_GETVAR,1,getpid());
+  if (var!=-1) proc_unpack_procdata(var,&argc,&argv);
+
+  /*if (var!=-1) {
     _process_data = shmat(var,NULL,0);
     if (_process_data!=NULL) get_cmdline(_process_data,&argv,&argc,&_stdin,&_stdout,&_stderr);
   }
@@ -95,7 +93,7 @@ void _start() {
 
   // post initialize stdlibc
   _stdlib_init_post(_stdin,_stdout,_stderr);
-  atexit(crt0_quit);
+  atexit(crt0_quit);*/
 
   // call main function and exit
   exit(main(argc,argv));

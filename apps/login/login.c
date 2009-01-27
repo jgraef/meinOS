@@ -16,6 +16,15 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdio.h>
+
+int main() {
+  FILE *terminal = fopen("/dev/console","r+");
+  fprintf(terminal,"login: This login shell isn't used anymore.\n");
+  return 0;
+}
+
+#if 0
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -95,3 +104,4 @@ while (1);
   computer_shutdown();
   return 0;
 }
+#endif

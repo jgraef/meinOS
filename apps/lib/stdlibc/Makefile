@@ -4,6 +4,7 @@ OBJFILES = abort.o \
            asprintf.o \
            assert.o \
            env.o \
+           exec.o \
            files.o \
            fork_asm.o \
            fork.o \
@@ -54,6 +55,8 @@ asprintf.o: asprintf.c
 assert.o: assert.c
 	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
 env.o: env.c
+	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
+exec.o: exec.c
 	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
 files.o: files.c
 	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)

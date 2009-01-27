@@ -32,7 +32,7 @@
 #include <procm.h>
 #include <elf.h>
 
-//#define STACKTRACE
+#define STACKTRACE
 
 /**
  * Initializes Interrupts
