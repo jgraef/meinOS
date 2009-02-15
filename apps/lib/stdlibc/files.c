@@ -36,6 +36,7 @@
 #include <sys/stat.h>    // stat
 #include <sys/statvfs.h> // statvfs
 #include <utime.h>       // utime
+#include <termios.h>     // terminal stuff
 
 #include <sys/socket.h>  // Socket stuff
 
@@ -67,6 +68,7 @@ struct filelist_item {
   enum { FL_FILE,FL_DIR,FL_SOCK } type;
   int fdfl;
   int stfl;
+  int isatty;
 };
 
 static llist_t filelist;
@@ -485,16 +487,17 @@ int open(const char *path,int oflag,...) {
       fh = rpc_call("fs_open",RPC_FLAG_SENDTO,fs->pid,fs->id,oflag,shmid);
       if (fh>=0) {
         struct filelist_item *new = malloc(sizeof(struct filelist_item));
+        memset(new,0,sizeof(struct filelist_item));
         new->fs_fh = fh;
         new->fs = fs;
         new->stfl = oflag;
-        new->fdfl = 0;
         new->mode = S_IFREG;
         new->fh = getnew_fh();
         new->path = strdup(cpath);
         new->shmid = shmid;
         new->shmbuf = shmbuf;
         new->type = FL_FILE;
+        new->isatty = (strncmp(path,"/dev/tty",8)==0);
         fh = new->fh;
         llist_push(filelist,new);
       }
@@ -581,81 +584,6 @@ int dup2(int fildes,int fildes2) {
   else errno = EBADF;
   return res;
 }
-
-#if 0 /** @todo remove? */
-/**
- * Reads from a file
- *  @param fildes File descriptor
- *  @param buf Buffer to store read data in
- *  @param count How many bytes to read
- *  @return How many bytes read
- */
-static ssize_t _read(struct filelist_item *file,void *buf,size_t count) {
-  ssize_t res = rpc_call("fs_read",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,count);
-  if (res>0) memcpy(buf,file->shmbuf,res);
-  return res;
-}
-ssize_t read(int fildes,void *buf,size_t count) {
-  struct filelist_item *file = filebyfh(fildes);
-  if (file!=NULL) {
-    ssize_t count_rem = count;
-    size_t off = 0;
-
-    while (count_rem>0) {
-      size_t count_sh = count_rem;
-      if (count_sh>SHMMEM_SIZE) count_sh = SHMMEM_SIZE;
-      size_t count_cur = _read(file,buf+off,count_sh);
-      if (count_cur==-1) return -1;
-      count_rem -= count_cur;
-      off += count_cur;
-      if (off==0 && FLAG_ISSET(file->stfl,O_NONBLOCK)) sleep(0);
-      else if (count_cur<count_sh) break;
-    }
-
-    return off;
-  }
-  else {
-    errno = EBADF;
-    return -1;
-  }
-}
-
-/**
- * Writes to a file
- *  @param fildes File descriptor
- *  @param buf Data to write to file
- *  @param count How many bytes to write
- *  @return How many bytes written
- */
-static ssize_t _write(struct filelist_item *file,const void *buf,size_t count) {
-  ssize_t res;
-  memcpy(file->shmbuf,buf,count);
-  res = rpc_call("fs_write",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh,count);
-  return res;
-}
-ssize_t write(int fildes,const void *buf,size_t count) {
-  struct filelist_item *file = filebyfh(fildes);
-  if (file!=NULL) {
-    ssize_t count_rem = count;
-    size_t off = 0;
-    while (count_rem>0) {
-      size_t count_sh = count_rem;
-      if (count_sh>SHMMEM_SIZE) count_sh = SHMMEM_SIZE;
-      size_t count_cur = _write(file,buf+off,count_sh);
-      if (count_cur==-1) return -1;
-      count_rem -= count_cur;
-      off += count_cur;
-      if (off==0 && FLAG_ISSET(file->stfl,O_NONBLOCK)) sleep(0);
-      else if (count_cur<count_sh) break;
-    }
-    return off;
-  }
-  else {
-    errno = EBADF;
-    return -1;
-  }
-}
-#endif
 
 /**
  * Reads from a file
@@ -890,12 +818,10 @@ DIR *opendir(const char *path) {
       dh = rpc_call("fs_opendir",RPC_FLAG_SENDTO,fs->pid,fs->id,shmid);
       if (dh>=0) {
         new = malloc(sizeof(struct filelist_item));
+        memset(new,0,sizeof(struct filelist_item));
         new->fs_fh = dh;
         new->fs = fs;
-        new->stfl = 0;
-        new->fdfl = 0;
         new->mode = S_IFDIR;
-        new->fh = 0; // Dir handles don't need IDs
         new->path = strdup(cpath);
         new->shmid = shmid;
         new->shmbuf = shmbuf;
@@ -1192,6 +1118,53 @@ mode_t umask(mode_t cmask) {
   mode_t ret = creation_mask;
   creation_mask = cmask&0777;
   return ret;
+}
+
+// Terminal stuff
+
+int tcgetattr(int fildes,struct termios *termios_p) {
+  int res;
+  struct filelist_item *file = filebyfh(fildes);
+  if (file) {
+    res = rpc_call("fs_tcgetattr",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
+    memcpy(termios_p,file->shmbuf,sizeof(struct termios));
+  }
+  else res = -EBADF;
+  errno = res<0?-res:0;
+  return res<0?-1:res;
+}
+
+int tcsetattr(int fildes,int optional_actions,const struct termios *termios_p) {
+  int res;
+  struct filelist_item *file = filebyfh(fildes);
+  if (file) {
+    memcpy(file->shmbuf,termios_p,sizeof(struct termios));
+    res = rpc_call("fs_tcsetattr",RPC_FLAG_SENDTO,file->fs->pid,file->fs->id,file->fs_fh);
+  }
+  else res = -EBADF;
+  errno = res<0?-res:0;
+  return res<0?-1:res;
+}
+
+char *ttyname(int fildes) {
+  int res;
+  struct filelist_item *file = filebyfh(fildes);
+  if (file) {
+    if (file->isatty) return file->path;
+    else res = -ENOTTY;
+  }
+  else res = -EBADF;
+  errno = res<0?-res:0;
+  return res<0?-1:res;
+}
+
+int isatty(int fildes) {
+  int res;
+  struct filelist_item *file = filebyfh(fildes);
+  if (file) return file->isatty;
+  else res = -EBADF;
+  errno = res<0?-res:0;
+  return res<0?-1:res;
 }
 
 ///////// SOCKET STUFF /////////////////////

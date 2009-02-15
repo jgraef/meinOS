@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <pwd.h>
+#include <sys/utsname.h>
 
 /**
  * Swaps bytes
@@ -74,4 +75,13 @@ char *getlogin() {
   struct passwd *pwd = getpwuid(getpid());
   if (pwd==NULL) return NULL;
   else return pwd->pw_name;
+}
+
+int gethostname(char *buf,size_t n) {
+  struct utsname utsbuf;
+  if (uname(&utsbuf)==0) {
+    strncpy(buf,utsbuf.nodename,n);
+    return 0;
+  }
+  else return -1;
 }

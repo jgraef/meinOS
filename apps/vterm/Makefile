@@ -2,8 +2,9 @@
 
 SOURCES = display.c \
           keyboard.c \
+          escape.c \
           main.c \
-          vterm.c
+          term.c
 
 all: vterm vterm.objdump
 	cp $< ../../files/bin

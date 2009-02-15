@@ -1,15 +1,11 @@
 -include ../Makefile.config
 
-all: de en_us
+KEYBOARD_LAYOUTS = de \
+                   en_us \
+
+all: $(KEYBOARD_LAYOUTS)
 	./de > ../files/etc/keyboard_layouts/de
 	./en_us > ../files/etc/keyboard_layouts/en_us
 
-
-de: de.c
-	$(CC) -o $@ $^
-
-en_us: en_us.c
-	$(CC) -o $@ $^
-
 clean:
-	rm -f de en_us
+	rm -f $(KEYBOARD_LAYOUTS)

@@ -45,5 +45,10 @@ uintmax_t strntoumax(const char *nptr, char **endptr, int base, size_t n);
 char *strrchr(const char *s, int c);
 size_t strspn(const char *s,const char *accept);
 size_t strcspn(const char *s,const char *reject);
+void *mempcpy(void *dest,const void *src,size_t n);
+char *stpcpy(char *dest,const char *src);
+void *memmem(const void *haystack,size_t n,const void *needle,size_t m);
+char *strstr(const char *haystack,const char *needle);
+void memswap(void *m1,void *m2,size_t n);
 
 #endif

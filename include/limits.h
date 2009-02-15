@@ -21,7 +21,6 @@
 
 // only userspace
 #define ATEXIT_MAX     (-1)
-#define LOGIN_NAME_MAX 256
 #define HOST_NAME_MAX  64
 #define LOGIN_NAME_MAX 256
 

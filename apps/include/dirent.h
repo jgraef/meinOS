@@ -19,6 +19,8 @@
 #ifndef _DIRENT_H_
 #define _DIRENT_H_
 
+#include <sys/types.h>
+
 #ifdef NAME_MAX
   #define MAXNAMELEN
 #endif
@@ -27,6 +29,8 @@
 
 struct dirent {
   char *d_name;
+  ino_t d_fileno;
+  ino_t d_ino;
 };
 
 typedef struct filelist_item DIR;

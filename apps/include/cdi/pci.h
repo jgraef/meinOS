@@ -14,15 +14,25 @@
 #include <stddef.h>
 #include <cdi/lists.h>
 #include <stdint.h>
+#include <llist.h>
+#include <pci.h>
 
 struct cdi_pci_device {
   uint16_t bus;
   uint16_t dev;
   uint16_t function;
+
   uint16_t vendor_id;
   uint16_t device_id;
-  uint16_t class_id;
+
+  uint8_t class_id;
+  uint8_t subclass_id;
+  uint8_t interface_id;
+
+  uint8_t rev_id;
+
   uint8_t irq;
+
   cdi_list_t resources;
 };
 
@@ -40,11 +50,28 @@ struct cdi_pci_resource {
   void *address;
 };
 
-void cdi_pci_get_all_devices(cdi_list_t list);
-void cdi_pci_device_destroy(struct cdi_pci_device* device);
-void cdi_pci_alloc_ioports(struct cdi_pci_device* device);
-void cdi_pci_free_ioports(struct cdi_pci_device* device);
-void cdi_pci_alloc_memory(struct cdi_pci_device* device);
-void cdi_pci_free_memory(struct cdi_pci_device* device);
+static __inline__ void cdi_pci_get_all_devices(cdi_list_t list) {
+  pci_get_all_devices((llist_t)list);
+}
+
+static __inline__ void cdi_pci_device_destroy(struct cdi_pci_device* device) {
+  pci_get_all_devices((struct pci_device*)device);
+}
+
+static __inline__ void cdi_pci_alloc_ioports(struct cdi_pci_device* device) {
+  pci_alloc_ioports((struct pci_device*)device);
+}
+
+static __inline__ void cdi_pci_free_ioports(struct cdi_pci_device* device) {
+  pci_free_ioports((struct pci_device*)device);
+}
+
+static __inline__ void cdi_pci_alloc_memory(struct cdi_pci_device* device) {
+  pci_alloc_memory((struct pci_device*)device);
+}
+
+static __inline__ void cdi_pci_free_memory(struct cdi_pci_device* device) {
+  pci_free_memory((struct pci_device*)device);
+}
 
 #endif

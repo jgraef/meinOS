@@ -15,6 +15,7 @@ module /bin/devfs
 module /bin/ata
 module /bin/cdrom
 module /bin/iso9660
-module /bin/console
+#module /bin/console
+module /bin/vterm
 module /bin/init2
 boot

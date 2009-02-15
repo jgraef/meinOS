@@ -36,7 +36,9 @@ OBJFILES = aaacrt0.o \
            pack.o \
            perm.o \
            tree.o \
-           string.o
+           string.o \
+           strings.o \
+           ctype.o
 
 all: kernel2 kernel2.objdump
 	cp $< ../files
@@ -117,6 +119,10 @@ perm.o: ../lib/libmeinos/perm.c
 tree.o: ../lib/libmeinos/tree.c
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
 string.o: ../lib/stdlibc/string.c
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
+strings.o: ../lib/stdlibc/strings.c
+	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
+ctype.o: ../lib/stdlibc/ctype.c
 	$(KERNEL_CC) $(KERNEL_CFLAGS) -o $@ $^
 
 kernel2.objdump: kernel2

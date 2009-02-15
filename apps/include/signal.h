@@ -21,12 +21,17 @@
 
 #include <sys/types.h>
 #include <syscall.h>
+#include <string.h>
 
-#define SIG_ERR -1
+#define SIG_ERR NULL
 
 // Default signal handler
 #define SIG_IGN _signal_dfl_ignore
 #define SIG_DFL NULL
+
+#define SIG_BLOCK   1
+#define SIG_UNBLOCK 2
+#define SIG_SETMASK 3
 
 // Signals
 #define SIGHUP       1
@@ -62,6 +67,7 @@
 #define SIGSYS      31
 #define SIGRTMIN(x) (34+(x))
 #define SIGRTMAX(x) (64-(x))
+#define SIG_MAXNUM 64
 
 typedef struct {
   int si_signo;
@@ -75,8 +81,7 @@ typedef struct {
 } siginfo_t;
 
 typedef struct {
-  size_t num_signals;
-  int *sigs;
+  char sigs[SIG_MAXNUM/sizeof(char)];
 } sigset_t;
 
 struct sigaction {
@@ -86,18 +91,33 @@ struct sigaction {
   void (*sa_sigaction)(int sig,siginfo_t *siginfo,void *context);
 };
 
+typedef int sig_atomic_t;
+
 void (*signal(int sig,void (*handler)(int)))(int);
 void (*sysv_signal(int sig,void (*handler)(int)))(int);
 void _signal_dfl_ignore(int sig);
 void _signal_handler(int sig);
+int sigaddset(sigset_t *set,int sig);
+int sigdelset(sigset_t *set,int sig);
+int sigprocmask(int how,const sigset_t *set,sigset_t *oset);
 
-static inline int kill(pid_t pid,int sig) {
+static __inline__ int kill(pid_t pid,int sig) {
   return syscall_call(SYSCALL_SIG_SEND,2,pid,sig);
 }
 
-static inline int raise(int sig) {
+static __inline__ int raise(int sig) {
   _signal_handler(sig);
   //kill(getpid(),sig);
+  return 0;
+}
+
+static __inline__ int sigemptyset(sigset_t *set) {
+  memset(set->sigs,0,SIG_MAXNUM/sizeof(char));
+  return 0;
+}
+
+static __inline__ int sigfillset(sigset_t *set) {
+  memset(set->sigs,1,SIG_MAXNUM/sizeof(char));
   return 0;
 }
 

@@ -16,10 +16,35 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <stdio.h>
+#include <rpc.h>
+#include <misc.h>
+
 #include "vterm.h"
 
 int main(int argc,char *argv[]) {
-  displays = llist_create();
-  vterms = llist_create();
+  if (vt_display_init()==-1) {
+    DEBUG("vterm: Error initializing display\n");
+    fprintf(stderr,"vterm: Error initializing display\n");
+    return 1;
+  }
+  if (vt_keyboard_init()==-1) {
+    DEBUG("vterm: Error initializing keyboard\n");
+    fprintf(stderr,"vterm: Error initializing keyboard\n");
+    return 1;
+  }
+  if (vt_term_init()==-1) {
+    DEBUG("vterm: Error initializing terminals\n");
+    fprintf(stderr,"vterm: Error initializing terminals\n");
+    return 1;
+  }
 
+  void *vgabuf = mem_getvga();
+  vt_display_t *display = vt_display_create(vgabuf);
+
+  /*vt_term_t *term =*/ vt_term_create(0,display,&vt_keyboard);
+
+  rpc_mainloop(-1);
+
+  return 0;
 }

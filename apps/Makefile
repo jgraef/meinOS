@@ -1,39 +1,17 @@
 -include ../Makefile.config
 
-all:
+all: copy_include all_libs all_apps
 
-	### TODO: FIXME #####
-	make -C beep/ clean
-	make -C test/ clean
-	make -C sh/ clean
-	make -C com/ clean
-	make -C devfs/ clean
-	make -C floppy/ clean
-	make -C vfs/ clean
-	make -C init/ clean
-	make -C dma/ clean
-	make -C ramdisk clean
-	make -C ata/ clean
-	make -C cdrom/ clean
-	make -C mount/ clean
-	make -C iso9660/ clean
-	make -C console/ clean
-	make -C pci/ clean
-	make -C psdev/ clean
-	make -C login/ clean
-	make -C gzip/ clean
-	make -C utils/ clean
-	make -C cirrus/ clean
-	make -C fat/ clean
-	#####################
+clean: clean_apps clean_libs
 
-	cp -R include/* $(GCC_TOOLCHAIN)/include/
 
+all_libs:
 	make -C lib/
 
+all_apps: clean_apps # HACK!
+	make -C vterm/
 	make -C beep/
 	make -C test/
-	make -C sh/
 	make -C com/
 	make -C devfs/
 	make -C floppy/
@@ -45,7 +23,6 @@ all:
 	make -C cdrom/
 	make -C mount/
 	make -C iso9660/
-	make -C console/
 	make -C pci/
 	make -C psdev/
 	make -C login/
@@ -57,12 +34,14 @@ all:
 	#make -C joystick/
 	#make -C ext2/
 
-clean:
+clean_libs:
 	make -C lib/ clean
 
+clean_apps:
+	### TODO: FIXME #####
+	make -C vterm/ clean
 	make -C beep/ clean
 	make -C test/ clean
-	make -C sh/ clean
 	make -C com/ clean
 	make -C devfs/ clean
 	make -C floppy/ clean
@@ -74,7 +53,6 @@ clean:
 	make -C cdrom/ clean
 	make -C mount/ clean
 	make -C iso9660/ clean
-	make -C console/ clean
 	make -C pci/ clean
 	make -C psdev/ clean
 	make -C login/ clean
@@ -85,3 +63,8 @@ clean:
 
 	#make -C joystick/ clean
 	#make -C ext2/ clean
+
+	#####################
+
+copy_include:
+	cp -R include/* $(GCC_TOOLCHAIN)/include/

@@ -16,90 +16,163 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <sys/types.h>
-#include <stdint.h>
+#include <llist.h>
+#include <pci.h>
 #include <ioport.h>
 #include <stdlib.h>
-#include <pci.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stddef.h>
+#include <dirent.h>
+#include <stdio.h>
 
-/**
- * Reads dword from config register of PCI device
- *  @param dev PCI device
- *  @param offset Register offset
- *  @return Register content
- */
-uint32_t pci_config_readd(pcidev_t *dev,size_t offset) {
-  return 0;
-}
+struct pci_config {
+  uint16_t vendor_id;
+  uint16_t device_id;
+  uint16_t command;
+  uint16_t status;
+  uint8_t revision;
+  uint8_t baseclass;
+  uint8_t subclass;
+  uint8_t interface;
+  uint8_t cache_line_size;
+  uint8_t latency_timer;
+  uint8_t header_type;
+  uint8_t bist;
+  uint32_t bar[6];
+  uint32_t cardbus_cis_ptr;
+  uint16_t subsystem_vendor_id;
+  uint16_t subsystem_id;
+  uint32_t exp_rom_bar;
+  uint32_t reserved[2];
+  uint8_t interrupt_line;
+  uint8_t interrupt_pin;
+  uint8_t min_grant;
+  uint8_t max_latency;
+};
 
-/**
- * Writes dword in config register of PCI device
- *  @param dev PCI device
- *  @param offset Register offset
- *  @param val Value to write
- */
-void pci_config_writed(pcidev_t *dev,size_t offset,uint32_t val) {
+static llist_t pci_devices = NULL;
 
-}
+static int pci_read_config(struct pci_device *pci) {
+  int ret = 0;
+  char *filename;
+  asprintf(&filename,"/dev/pci%d.%d.%d",pci->bus,pci->dev,pci->function);
+  int fh = open(filename,O_RDWR);
+  free(filename);
 
+  if (fh!=-1) {
+    struct pci_config conf;
+    read(fh,&conf,sizeof(conf));
 
-/**
- * Finds PCI device by VendorID and DeviceID
- *  @param dev Pointer to PCI device
- *  @param vendorid VendorID
- *  @param deviceid DeviceID
- *  @param index If more than 1 device is found, select n'th one
- *  @return Whether device was found
- */
-int pci_finddev_byids(pcidev_t *dev,int vendorid,int deviceid,int index) {
-  for (dev->bus=0;dev->bus<PCI_MAXBUSSES;dev->bus++) {
-    for (dev->slot=0;dev->slot<PCI_MAXSLOTS;dev->slot++) {
-      if (pci_get_vendorid(dev)==vendorid && pci_get_deviceid(dev)==deviceid) {
-        if (!index) return 1;
-        else index--;
+    if (conf.header_type==0 || conf.header_type==1) {
+      pci->vendor_id = conf.vendor_id;
+      pci->device_id = conf.device_id;
+      pci->class_id = conf.baseclass;
+      pci->subclass_id = conf.subclass;
+      pci->interface_id = conf.interface;
+      pci->rev_id = conf.revision;
+      pci->irq = conf.interrupt_line; /// @todo Is that right?
+      pci->resources = llist_create();
+
+      size_t i;
+      for (i=0;i<6;i++) {
+        if (conf.bar[i]&1) {
+          struct pci_resource *res = malloc(sizeof(struct pci_resource));
+          res->start = conf.bar[i]&0xFFFFFFF0;
+          res->type = (conf.bar[i]&1)?PCI_IOPORTS:PCI_MEMORY;
+          res->index = i;
+          lseek(fh,offsetof(struct pci_config,bar[i]),SEEK_SET);
+          uint32_t bar_tmp = 0xFFFFFFF0|(conf.bar[i]&1);
+          write(fh,&bar_tmp,4);
+          lseek(fh,offsetof(struct pci_config,bar[i]),SEEK_SET);
+          read(fh,&(res->length),4);
+          res->length = (~res->length|0xF)+1;
+          lseek(fh,offsetof(struct pci_config,bar[i]),SEEK_SET);
+          write(fh,conf.bar+i,4);
+          llist_push(pci->resources,res);
+        }
       }
     }
+    else ret = -1;
+
+    close(fh);
   }
-  return 0;
+  else ret = -1;
+
+  return ret;
 }
 
-/**
- * Finds PCI device by Classcode and Subclass
- *  @param dev Pointer to PCI device
- *  @param classcode Classcode
- *  @param subclass Subclass
- *  @param index If more than 1 device is found, select n'th one
- *  @return Whether device was found
- */
-int pci_finddev_byclass(pcidev_t *dev,int classcode,int subclass,int index) {
-  for (dev->bus=0;dev->bus<PCI_MAXBUSSES;dev->bus++) {
-    for (dev->slot=0;dev->slot<PCI_MAXSLOTS;dev->slot++) {
-      if (pci_get_subclass(dev)==classcode && pci_get_subclass(dev)==subclass) {
-        if (!index) return 1;
-        else index--;
-      }
+void pci_get_all_devices(llist_t list) {
+  if (pci_devices==NULL) {
+    DIR *dir = opendir("/dev");
+    if (dir!=NULL) {
+      struct dirent *ent;
+      do {
+        ent = readdir(dir);
+        if (ent!=NULL) {
+          if (strncmp(ent->d_name,"pci",3)==0) {
+            struct pci_device *new = malloc(sizeof(struct pci_device));
+            if (sscanf(ent->d_name,"pci%d.%d.%d",&(new->bus),&(new->dev),&(new->function))==3) {
+              if (pci_read_config(new)!=-1) llist_push(list,new);
+            }
+            else free(new);
+          }
+        }
+      } while (ent!=NULL);
+      closedir(dir);
     }
   }
-  return 0;
 }
 
-/**
- * Returns Pointer to BAR structure
- *  @param dev PCI device
- *  @param barnum Number of BAR register (0..5)
- *  @return Pointer to BAR structure
- */
-pcibar_t *pci_getbar(pcidev_t *dev,int barnum) {
-  pcibar_t *bar = malloc(sizeof(pcibar_t));
-  uint32_t bar_value = pci_config_readd(dev,barnum*4+0x10);
-  bar->type = bar_value&1;
-  if (bar->type==PCI_BARTYPE_MEMORY) {
-    bar->addr = (void*)(bar_value&0xFFFFFFF0);
-    pci_config_writed(dev,barnum*4+0x10,0xFFFFFFF0|bar->type);
-    bar->size = pci_config_readd(dev,barnum*4+0x10);
-    bar->size = (~bar->size|0xF)+1;
-    pci_config_writed(dev,barnum*4+0x10,bar_value);
+void pci_device_destroy(struct pci_device* device) {
+  struct pci_resource *res;
+
+  pci_free_ioports(device);
+  pci_free_memory(device);
+  while ((res = llist_pop(device->resources))) free(res);
+  llist_destroy(device->resources);
+  free(device);
+}
+
+void pci_alloc_ioports(struct pci_device* device) {
+  struct pci_resource *res;
+  size_t i;
+
+  for (i=0;(res = llist_get(device->resources,i));i++) {
+    if (res->type==PCI_IOPORTS) {
+      size_t j;
+      for (j=0;j<res->length;j++) ioport_reg(res->start+j);
+    }
   }
-  else bar->ioport = bar_value&0xFFFFFFFC;
-  return bar;
+}
+
+void pci_free_ioports(struct pci_device* device) {
+  struct pci_resource *res;
+  size_t i;
+
+  for (i=0;(res = llist_get(device->resources,i));i++) {
+    if (res->type==PCI_IOPORTS) {
+      size_t j;
+      for (j=0;j<res->length;j++) ioport_unreg(res->start+j);
+    }
+  }
+}
+
+void pci_alloc_memory(struct pci_device *device) {
+  struct pci_resource *res;
+  size_t i;
+
+  for (i=0;(res = llist_get(device->resources,i));i++) {
+    if (res->type==PCI_MEMORY) res->address = NULL; /// @todo
+  }
+}
+
+void pci_free_memory(struct pci_device *device) {
+  struct pci_resource *res;
+  size_t i;
+
+  for (i=0;(res = llist_get(device->resources,i));i++) {
+    if (res->type==PCI_MEMORY); /// @todo
+  }
 }

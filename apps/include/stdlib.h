@@ -68,6 +68,10 @@ void* memalign(size_t, size_t);
 
 char *realpath(const char *file_name,char *resolved_name);
 
+void *bsearch(const void *vdkey,const void *vdbase,size_t nel,size_t width,int (*compar)(const void *, const void *));
+int mkstemp(char *template);
+void qsort(void *base,size_t nmemb,size_t size,int (*compar)(const void*,const void*));
+
 static inline signed long strtol(const char *nptr,char **endptr,int base) {
   return (signed long)strntoumax(nptr,endptr,base,~(size_t)0);
 }
@@ -83,6 +87,5 @@ static inline unsigned long strtoul(const char *nptr,char **endptr,int base) {
 static inline unsigned long long strtoull(const char *nptr,char **endptr,int base) {
   return (unsigned long long)strntoumax(nptr,endptr,base,~(size_t)0);
 }
-
 
 #endif

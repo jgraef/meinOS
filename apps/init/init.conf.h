@@ -24,7 +24,7 @@ static const char *init_programs[] = {
   "ata",
   "cdrom",
   "iso9660",
-  "console",
+  "vterm",
   NULL
 };
 

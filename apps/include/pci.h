@@ -16,15 +16,54 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _LIBMEINOS_PCI_H_
-#define _LIBMEINOS_PCI_H_
+#ifndef _PCI_H_
+#define _PCI_H_
 
-#include <sys/types.h>
+#include <stddef.h>
+#include <llist.h>
 #include <stdint.h>
 
-#define PCI_MAXBUSSES 256
-#define PCI_MAXSLOTS  32
-#define PCI_MAXFUNCS  8
+typedef struct pci_device pci_dev_t;
+typedef struct pci_resource pci_res_t;
+
+struct pci_device {
+  uint16_t bus;
+  uint16_t dev;
+  uint16_t function;
+
+  uint16_t vendor_id;
+  uint16_t device_id;
+
+  uint8_t class_id;
+  uint8_t subclass_id;
+  uint8_t interface_id;
+
+  uint8_t rev_id;
+
+  uint8_t irq;
+
+  llist_t resources;
+};
+
+typedef enum {
+  PCI_MEMORY,
+  PCI_IOPORTS
+} pci_restype_t;
+
+struct pci_resource {
+  pci_restype_t type;
+  uint32_t start;
+  size_t length;
+  unsigned int index;
+  void *address;
+};
+
+void pci_get_all_devices(llist_t list);
+void pci_device_destroy(struct pci_device* device);
+void pci_alloc_ioports(struct pci_device* device);
+void pci_free_ioports(struct pci_device* device);
+void pci_alloc_memory(struct pci_device* device);
+void pci_free_memory(struct pci_device* device);
 
 #define PCI_VENDOR_NONE         0xFFFF
 #define PCI_VENDOR_MICROSOFT    0x045E
@@ -126,37 +165,5 @@
 #define PCI_SUBCLASS_SERIALBUS_ACCESS   0x01
 #define PCI_SUBCLASS_SERIALBUS_SSA      0x02
 #define PCI_SUBCLASS_SERIALBUS_USB      0x03
-
-#define pci_config_readw(dev,offset) (pci_config_readd(dev,offset&0xFC)>>((offset&0x2)*8))
-#define pci_config_readb(dev,offset) (pci_config_readd(dev,offset&0xFC)>>((offset&0x3)*8))
-
-#define pci_get_vendorid(dev)             pci_config_readw(dev,0)
-#define pci_get_deviceid(dev)             pci_config_readw(dev,2)
-#define pci_get_classcode(dev)            pci_config_readb(dev,11)
-#define pci_get_subclass(dev)             pci_config_readb(dev,10)
-#define pci_get_present(dev)              (pci_get_vendorid(dev)!=PCI_VENDOR_NONE && pci_get_vendorid(dev)!=0)
-#define pci_get_irq(dev)                  pci_config_readb(dev,0x3C)
-
-typedef struct {
-  unsigned int bus;
-  unsigned int slot;
-  unsigned int func;
-} pcidev_t;
-
-typedef struct {
-  enum {
-   PCI_BARTYPE_MEMORY = 0,
-   PCI_BARTYPE_IOPORT = 1
-  } type;
-  void* addr;
-  size_t size;
-  uint32_t ioport;
-} pcibar_t;
-
-uint32_t pci_config_readd(pcidev_t *dev,size_t offset);
-void pci_config_writed(pcidev_t *dev,size_t offset,uint32_t val);
-int pci_finddev_byids(pcidev_t *dev,int vendorid,int deviceid,int index);
-int pci_finddev_byclass(pcidev_t *dev,int classcode,int subclass,int index);
-pcibar_t *pci_getbar(pcidev_t *dev,int barnum);
 
 #endif

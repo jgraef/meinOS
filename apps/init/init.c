@@ -150,6 +150,7 @@ static pid_t proc_fork(void *child_entry) {
 }
 
 static int proc_exec(const char *file,int var) {
+  dbgmsg("proc_exec(%s,%d)\n",file,var);
   // Change process
   char *_file = strdup(file);
   proc_setname(rpc_curpid,basename(_file));

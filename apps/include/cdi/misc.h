@@ -38,7 +38,7 @@ static inline uint64_t cdi_time_offset(unsigned int hour,unsigned int minute,uns
 int cdi_ioports_alloc(uint16_t start,uint16_t count);
 int cdi_ioports_free(uint16_t start,uint16_t count);
 uint64_t cdi_time_by_date(unsigned int year,unsigned int month,unsigned int day);
+int cdi_alloc_phys_mem(size_t size,void **vaddr,void **paddr);
 void* cdi_alloc_phys_addr(size_t size,uintptr_t paddr);
-void cdi_free_phys_addr(size_t size,uintptr_t paddr);
 
 #endif

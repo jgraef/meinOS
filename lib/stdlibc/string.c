@@ -496,6 +496,18 @@ uintmax_t strntoumax(const char *nptr, char **endptr, int base, size_t n) {
   return minus?-v:v;
 }
 
+intmax_t strntoimax(const char *nptr,char **endptr,int base,size_t n) {
+  return (intmax_t) strntoumax(nptr,endptr,base,n);
+}
+
+uintmax_t strtoumax(const char *nptr,char **endptr,int base) {
+  return (uintmax_t)strntoumax(nptr,endptr,base,~(size_t)0);
+}
+
+intmax_t strtoimax(const char *nptr,char **endptr,int base) {
+  return (intmax_t)strntoumax(nptr,endptr,base,~(size_t)0);
+}
+
 char *strrchr(const char *s, int c) {
   char *l = NULL;
   size_t i;
@@ -528,4 +540,70 @@ size_t strspn(const char *s,const char *accept) {
 
 size_t strcspn(const char *s,const char *reject) {
   return strxspn(s,reject,1);
+}
+
+void *mempcpy(void *dest,const void *src,size_t n) {
+  memcpy(dest,src,n);
+  return dest+n;
+}
+
+char *stpcpy(char *dest,const char *src) {
+  size_t i;
+  for (i=0;src[i]!=0;i++) {
+    dest[i] = src[i];
+  }
+  return dest+i;
+}
+
+void *memmem(const void *haystack,size_t n,const void *needle,size_t m) {
+  const unsigned char *y = (const unsigned char*)haystack;
+  const unsigned char *x = (const unsigned char*)needle;
+  size_t j,k,l;
+
+  if (m>n || !m || !n) return NULL;
+
+  if (m!=1) {
+    if (x[0]==x[1]) {
+      k = 2;
+      l = 1;
+    }
+    else {
+      k = 1;
+      l = 2;
+    }
+
+    j = 0;
+    while (j<=n-m) {
+      if (x[1] != y[j + 1]) j += k;
+      else {
+        if (!memcmp(x+2,y+j+2,m-2) && x[0]==y[j]) return (void *)&y[j];
+        j += l;
+      }
+    }
+  }
+  else {
+    do {
+      if (*y == *x) return (void *)y;
+      y++;
+    } while (--n);
+  }
+  return NULL;
+}
+
+char *strstr(const char *haystack,const char *needle) {
+  return (char*)memmem(haystack,strlen(haystack),needle,strlen(needle));
+}
+
+void memswap(void *m1,void *m2,size_t n) {
+  char *p = m1;
+  char *q = m2;
+  char tmp;
+
+  while (n--) {
+    tmp = *p;
+    *p = *q;
+    *q = tmp;
+    p++;
+    q++;
+  }
 }

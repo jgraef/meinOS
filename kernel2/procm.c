@@ -340,11 +340,17 @@ pid_t proc_getchild(pid_t pid,size_t i) {
  *  @param idmask Which ID to return
  *  @return UID
  */
-uid_t proc_getuid(int idmask) {
-  if ((idmask&1)) return proc_current->uid;
-  else if ((idmask&2)) return proc_current->euid;
-  else if ((idmask&4)) return proc_current->suid;
-  else return 0;
+uid_t proc_getuid(int id) {
+  switch (id) {
+    case 1:
+      return proc_current->uid;
+    case 2:
+      return proc_current->euid;
+    case 3:
+      return proc_current->suid;
+    default:
+      return 0;
+  }
 }
 
 /**
@@ -353,34 +359,56 @@ uid_t proc_getuid(int idmask) {
  *  @param uid New UID
  *  @todo Check permissions
  */
-void proc_setuid(int idmask,uid_t uid) {
-  if ((idmask&1)) proc_current->uid = uid;
-  else if ((idmask&2)) proc_current->euid = uid;
-  else if ((idmask&4)) proc_current->suid = uid;
+void proc_setuid(int id,uid_t uid) {
+  switch (id) {
+    case 1:
+      proc_current->uid = uid;
+      break;
+    case 2:
+      proc_current->euid = uid;
+      break;
+    case 3:
+      proc_current->suid = uid;
+      break;
+  }
 }
 
 /**
  * Gets GID (Syscall)
- *  @param idmask Which ID to return
+ *  @param id Which ID to return
  *  @return GID
  */
-gid_t proc_getgid(int idmask) {
-  if ((idmask&1)) return proc_current->gid;
-  else if ((idmask&2)) return proc_current->egid;
-  else if ((idmask&4)) return proc_current->sgid;
-  else return 0;
+gid_t proc_getgid(int id) {
+  switch (id) {
+    case 1:
+      return proc_current->gid;
+    case 2:
+      return proc_current->egid;
+    case 3:
+      return proc_current->sgid;
+    default:
+      return 0;
+  }
 }
 
 /**
  * Sets GID (Syscall)
- *  @param idmask Which ID to set
- *  @param uid New GID
+ *  @param id Which ID to set
+ *  @param gid New GID
  *  @todo Check permissions
  */
-void proc_setgid(int idmask,gid_t gid) {
-  if ((idmask&1)) proc_current->gid = gid;
-  else if ((idmask&2)) proc_current->egid = gid;
-  else if ((idmask&4)) proc_current->sgid = gid;
+void proc_setgid(int id,gid_t gid) {
+  switch (id) {
+    case 1:
+      proc_current->gid = gid;
+      break;
+    case 2:
+      proc_current->egid = gid;
+      break;
+    case 3:
+      proc_current->sgid = gid;
+      break;
+  }
 }
 
 /**
@@ -535,7 +563,7 @@ void proc_call(proc_t *proc,void *func,size_t numparams,...) {
     va_list args;
     size_t i;
     int *params = malloc(numparams*sizeof(int));
-    uint32_t *eip = proc_current==proc?interrupt_curregs.eip:&proc->registers.eip;
+    uint32_t *eip = proc_current==proc?interrupt_curregs.eip:&(proc->registers.eip);
 
     va_start(args,numparams);
     for (i=0;i<numparams;i++) params[numparams-(i+1)] = va_arg(args,int);
@@ -549,7 +577,7 @@ void proc_call(proc_t *proc,void *func,size_t numparams,...) {
     }
     *eip = (uint32_t)func;
 
-    //proc_wake(proc);
+    proc_wake(proc);
   }
 }
 

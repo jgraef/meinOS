@@ -20,17 +20,16 @@
 #include <irq.h>
 #include <llist.h>
 #include <syscall.h>
-
-#include <stdio.h>
+#include <stdlib.h>
 
 struct irq_handler {
   void *func;
   void *user_data;
   int give_irq;
+  int running;
 };
 
 static llist_t irq_handlers[16];
-static int irq_handler_running = 0;
 
 int _irq_init() {
   size_t i;
@@ -49,6 +48,7 @@ int irq_reghandler(unsigned int irq,void *func,void *user_data,int give_irq) {
     new->func = func;
     new->user_data = user_data;
     new->give_irq = give_irq;
+    new->running = 0;
     llist_push(irq_handlers[irq],new);
     return 0;
   }
@@ -56,22 +56,24 @@ int irq_reghandler(unsigned int irq,void *func,void *user_data,int give_irq) {
 }
 
 void _irq_handler(unsigned int irq) {
-  if (irq<16 && !irq_handler_running) {
+  if (irq<16) {
     size_t i;
     struct irq_handler *handler;
     for (i=0;(handler = llist_get(irq_handlers[irq],i));i++) {
-      irq_handler_running = 1;
-      if (handler->give_irq) {
-        void (*func)(unsigned int irq,void *user_data);
-        func = handler->func;
-        func(irq,handler->user_data);
+      if (!handler->running) {
+        handler->running = 1;
+        if (handler->give_irq) {
+          void (*func)(unsigned int irq,void *user_data);
+          func = handler->func;
+          func(irq,handler->user_data);
+        }
+        else {
+          void (*func)(void *user_data);
+          func = handler->func;
+          func(handler->user_data);
+        }
+        handler->running = 0;
       }
-      else {
-        void (*func)(void *user_data);
-        func = handler->func;
-        func(handler->user_data);
-      }
-      irq_handler_running = 0;
     }
   }
 }

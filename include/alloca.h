@@ -16,23 +16,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _SYS_CDEFS_H_
-#define _SYS_CDEFS_H_
+#ifndef _ALLOCA_H_
+#define _ALLOCA_H_
 
-#define __CONCAT1(x,y)  x ## y
-#define __CONCAT(x,y)   __CONCAT1(x,y)
-#define __STRING(x)     #x              /* stringify without expanding x */
-#define __XSTRING(x)    __STRING(x)     /* expand x, then stringify */
+#define alloca(x) __builtin_alloca(x)
 
-#define __const         const           /* define reserved names to standard */
-#define __signed        signed
-#define __volatile      volatile
-
-#define __RCSID(x)     /*static char _sccsid[] = x;*/
-#define __VERSION(x)   /*static char _version[] = x;*/
-#define __COPYRIGHT(x) /*static char _copyright[] = x;*/
-
-#define __BEGIN_DECLS
-#define __END_DECLS
-
-#endif
+#endif /* _ALLOCA_H_ */

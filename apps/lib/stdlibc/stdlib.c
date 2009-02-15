@@ -28,6 +28,10 @@
 #include <time.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <locale.h>
 
 static llist_t atexit_list;
 
@@ -46,6 +50,7 @@ void _stdlib_init() {
   _signal_init();
   _fs_init();
   _stdio_init();
+  setlocale(LC_ALL,"POSIX");
 }
 
 /**
@@ -236,4 +241,46 @@ int system(const char *command) {
       return stat;
     }
   }
+}
+
+static size_t newgap(size_t gap)
+{
+	gap = (gap * 10) / 13;
+	if (gap == 9 || gap == 10)
+		gap = 11;
+
+	if (gap < 1)
+		gap = 1;
+	return gap;
+}
+
+void qsort(void *base, size_t nmemb, size_t size,
+	   int (*compar) (const void *, const void *))
+{
+	size_t gap = nmemb;
+	size_t i, j;
+	char *p1, *p2;
+	int swapped;
+
+	if (!nmemb)
+		return;
+
+	do {
+		gap = newgap(gap);
+		swapped = 0;
+
+		for (i = 0, p1 = base; i < nmemb - gap; i++, p1 += size) {
+			j = i + gap;
+			if (compar(p1, p2 = (char *)base + j * size) > 0) {
+				memswap(p1, p2, size);
+				swapped = 1;
+			}
+		}
+	} while (gap > 1 || swapped);
+}
+
+int mkstemp(char *template) {
+  char *x = template+strlen(template)-6;
+  snprintf(x,6,"%x",clock());
+  return open(template,O_RDWR);
 }

@@ -7,7 +7,6 @@ OBJFILES = bios.o \
            fs.o \
            misc.o \
            net.o \
-           pci.o \
            scsi.o \
            storage.o \
            video.o

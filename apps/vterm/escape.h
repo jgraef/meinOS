@@ -16,24 +16,11 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _CONSOLE_H_
-#define _CONSOLE_H_
+#ifndef _ESCAPE_H_
+#define _ESCAPE_H_
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <wchar.h>
-#include <devfs.h>
+#define VT_ESCAPE_CHAR 0x1B
 
-/*#define DEBUG(...) do { printf("console: "); \
-    printf(__VA_ARGS__); } while (0);*/
-#define DEBUG(...)
+size_t vt_escape_decode(vt_term_t *term,char *escape);
 
-// keyboard.c
-int init_keyboard();
-ssize_t onread(devfs_dev_t *dev,void *buffer,size_t count,off_t offset);
-
-// screen.c
-int init_screen();
-ssize_t onwrite(devfs_dev_t *dev,void *buffer,size_t count,off_t offset);
-
-#endif
+#endif /* _ESCAPE_H_ */

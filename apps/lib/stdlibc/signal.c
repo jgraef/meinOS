@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <errno.h>
 
 #define SIG_NUM 64
 
@@ -41,7 +42,7 @@ static void signal_create(int sig,void (*handler)(int)) {
 
 void _signal_handler(int sig) {
   if (sig<SIG_NUM) {
-    if (signals[sig].handler!=NULL) {
+    if (signals[sig].handler!=NULL && !signals[sig].masked) {
       signals[sig].handler(sig);
       if (signals[sig].sysv) signals[sig].handler = signals[sig].dfl;
     }
@@ -101,19 +102,93 @@ void _signal_init() {
 }
 
 void (*signal(int sig,void (*handler)(int)))(int) {
-  if (sig<SIG_NUM && sig!=SIGKILL && sig!=SIGSTOP) {
+  if (sig>0 && sig<SIG_MAXNUM && sig!=SIGKILL && sig!=SIGSTOP) {
     if (handler==SIG_DFL) signals[sig].handler = signals[sig].dfl;
     else signals[sig].handler = handler;
     signals[sig].sysv = 0;
+    signals[sig].masked = 0;
   }
   return signals[sig].handler;
 }
 
 void (*sysv_signal(int sig,void (*handler)(int)))(int) {
-  if (sig<SIG_NUM && sig!=SIGKILL && sig!=SIGSTOP) {
+  if (sig>0 && sig<SIG_MAXNUM && sig!=SIGKILL && sig!=SIGSTOP) {
     if (handler==SIG_DFL) signals[sig].handler = signals[sig].dfl;
     else signals[sig].handler = handler;
     signals[sig].sysv = 1;
+    signals[sig].masked = 0;
   }
   return signals[sig].handler;
+}
+
+int sigaddset(sigset_t *set,int sig) {
+  if (sig>0 && sig<SIG_MAXNUM && set!=NULL) {
+    sig--;
+    set->sigs[sig/sizeof(char)] |= 1<<(sig%sizeof(char));
+    return 0;
+  }
+  else return -1;
+}
+
+int sigdelset(sigset_t *set,int sig) {
+  if (sig>0 && sig<SIG_MAXNUM && set!=NULL) {
+    sig--;
+    set->sigs[sig/sizeof(char)] &= ~(1<<(sig%sizeof(char)));
+    return 0;
+  }
+  else return -1;
+}
+
+int sigismember(const sigset_t *set,int sig) {
+  if (sig>0 && sig<SIG_MAXNUM && set!=NULL) {
+    sig--;
+    return set->sigs[sig/sizeof(char)]&(1<<(sig%sizeof(char)));
+  }
+  else return -1;
+}
+
+int sigprocmask(int how,const sigset_t *set,sigset_t *oset) {
+  int i;
+
+  if (how==SIG_BLOCK && set!=NULL) {
+    for (i=0;i<SIG_MAXNUM;i++) {
+      if (sigismember(set,i)) signals[i].masked = 1;
+      if (oset!=NULL) {
+        if (signals[i].masked) sigaddset(oset,i);
+        else sigdelset(oset,i);
+      }
+    }
+    return 0;
+  }
+  else if (how==SIG_UNBLOCK && set!=NULL) {
+    for (i=0;i<SIG_MAXNUM;i++) {
+      if (sigismember(set,i)) signals[i].masked = 0;
+      if (oset!=NULL) {
+        if (signals[i].masked) sigaddset(oset,i);
+        else sigdelset(oset,i);
+      }
+    }
+    return 0;
+  }
+  else if (how==SIG_SETMASK && set!=NULL) {
+    for (i=0;i<SIG_MAXNUM;i++) {
+      signals[i].masked = sigismember(set,i);
+      if (oset!=NULL) {
+        if (signals[i].masked) sigaddset(oset,i);
+        else sigdelset(oset,i);
+      }
+    }
+    return 0;
+  }
+  else if (oset!=NULL) {
+    for (i=0;i<SIG_MAXNUM;i++) {
+      if (signals[i].masked) sigaddset(oset,i);
+      else sigdelset(oset,i);
+    }
+    return 0;
+  }
+  else {
+    errno = EINVAL;
+    return -1;
+  }
 }

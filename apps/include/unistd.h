@@ -24,13 +24,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <proc.h>
+#include <crypt.h>
 
 #ifndef NULL
   #define NULL ((void*)0)
 #endif
 
-#define POSIX_VERSION    200112L
-#define POSIX2_VERSION   200112L
+#define _POSIX_VERSION    200112L
+#define _POSIX2_VERSION   200112L
 
 #define SEEK_SET         0 // Seek from beginning of file
 #define SEEK_CUR         1 // Seek from current position
@@ -44,26 +45,8 @@
 #define getpid()    syscall_call(SYSCALL_PROC_GETPID,0)
 #define getppid()   getppidbypid(getpid())
 
-// ID Bitmask
-//  1 - Real ID
-//  2 - Effective ID
-//  4 - Saved ID
-
-#define getuid()    syscall_call(SYSCALL_PROC_GETUID,1,1)
-#define geteuid()   syscall_call(SYSCALL_PROC_GETUID,1,2)
-#define getgid()    syscall_call(SYSCALL_PROC_GETGID,1,1)
-#define getegid()   syscall_call(SYSCALL_PROC_GETGID,1,2)
-
-#define setuid(uid)   syscall_call(SYSCALL_PROC_SETUID,2,7,uid)
-#define seteuid(uid)  syscall_call(SYSCALL_PROC_SETUID,2,2,uid)
-#define setreuid(uid) syscall_call(SYSCALL_PROC_SETUID,2,3,uid)
-#define setgid(gid)   syscall_call(SYSCALL_PROC_SETGID,2,7,gid)
-#define setegid(gid)  syscall_call(SYSCALL_PROC_SETGID,2,2,uid)
-#define setregid(gid) syscall_call(SYSCALL_PROC_SETGID,2,3,gid)
-
 #define dup(fildes) dup2(fildes,0)
-// meinOS has no "ttys"
-#define isatty(fh) 0
+
 /// @todo When symlinks are (completely) implemented, this has to be rewritten
 #define lstat(path,buf) stat(path,buf)
 
@@ -93,8 +76,10 @@ int rmdir(const char *path);
 int ftruncate(int fildes,off_t length);
 int truncate(const char *path,off_t length);
 int pipe(int fildes[2]);
+char *ttyname(int fildes);
+int isatty(int fildes);
 
-int gethostname(char *, size_t); ///< @todo implement uname(...);
+int gethostname(char *, size_t);
 void swab(const void *buf1,void *buf2,ssize_t size);
 unsigned sleep(unsigned sec);
 int usleep(useconds_t usec);
@@ -109,5 +94,46 @@ int execlp(const char *file, ... /*, (char *)0 */);
 int execvp(const char *file, char *const argv[]);
 
 pid_t fork();
+
+// ID enum
+//  1 - Real ID
+//  2 - Effective ID
+//  3 - Saved ID
+static __inline__ getuid(void) {
+  return syscall_call(SYSCALL_PROC_GETUID,1,1);
+}
+static __inline__ geteuid(void) {
+  return syscall_call(SYSCALL_PROC_GETUID,2,1);
+}
+static __inline__ getgid(void) {
+  return syscall_call(SYSCALL_PROC_GETGID,1,1);
+}
+static __inline__ getegid(void) {
+  return syscall_call(SYSCALL_PROC_GETGID,2,1);
+}
+static __inline__ setuid(uid_t uid) {
+  syscall_call(SYSCALL_PROC_SETUID,2,1,uid);
+  syscall_call(SYSCALL_PROC_SETUID,2,2,uid);
+  syscall_call(SYSCALL_PROC_SETUID,2,3,uid);
+}
+static __inline__ seteuid(uid_t uid) {
+  syscall_call(SYSCALL_PROC_SETUID,2,2,uid);
+}
+static __inline__ setreuid(uid_t ruid,uid_t euid) {
+  syscall_call(SYSCALL_PROC_SETUID,2,1,ruid);
+  syscall_call(SYSCALL_PROC_SETUID,2,2,euid);
+}
+static __inline__ setgid(gid_t gid) {
+  syscall_call(SYSCALL_PROC_SETGID,2,1,gid);
+  syscall_call(SYSCALL_PROC_SETGID,2,2,gid);
+  syscall_call(SYSCALL_PROC_SETGID,2,3,gid);
+}
+static __inline__ setegid(gid_t gid) {
+  syscall_call(SYSCALL_PROC_SETGID,2,2,gid);
+}
+static __inline__ setregid(gid_t rgid,gid_t egid) {
+  syscall_call(SYSCALL_PROC_SETGID,2,1,rgid);
+  syscall_call(SYSCALL_PROC_SETGID,2,2,egid);
+}
 
 #endif
