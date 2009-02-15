@@ -2,6 +2,7 @@
 
 all:
 	make -C stdlibc/
+	make -C libm/
 	make -C libmeinos/
 	make -C libcdi/
 	make -C libfuse/
@@ -17,8 +18,9 @@ all:
 	ar qs $(GCC_TOOLCHAIN)/lib/libc.a libmeinos/*.o
 
 clean:
-	make -C libmeinos/ clean
 	make -C stdlibc/ clean
+	make -C libm/ clean
+	make -C libmeinos/ clean
 	make -C libcdi/ clean
 	make -C libfuse/ clean
 	make -C zlib/ clean
