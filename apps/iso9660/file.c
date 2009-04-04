@@ -37,6 +37,5 @@ size_t iso9660_fs_file_read(struct cdi_fs_stream *stream,uint64_t start,size_t s
   if (start+size>res->data_size) size = res->data_size-start;
 
   iso9660_read(res,start,size,buffer);
-  //cdi_cache_entry_read(res->cache_entry,start,size,buffer);
   return size;
 }

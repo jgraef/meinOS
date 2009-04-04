@@ -32,9 +32,8 @@
  *  @return If signature is right
  */
 static int iso9660_voldesc_checksig(uint8_t sig[6]) {
-  return 1;
-  //char right[6] = {'C','D','0','0','1',1};
-  //return memcmp(right,sig,6)==0;
+  char right[6] = {'C','D','0','0','1',1};
+  return memcmp(right,sig,6)==0;
 }
 
 /**
@@ -50,7 +49,7 @@ int iso9660_voldesc_load(struct cdi_fs_filesystem *fs,iso9660_voldesc_type_t typ
   size_t i;
 
   for (i=ISO9660_FIRST_SECTOR;header.type!=type && header.type!=ISO9660_VOLDESC_TERM;i++) {
-    iso9660_sector_read(fs,i*ISO9660_DEFAULT_SECTOR_SIZE,sizeof(header),&header);
+    if (iso9660_sector_read(fs,i*ISO9660_DEFAULT_SECTOR_SIZE,sizeof(header),&header)!=sizeof(header)) return -1;
     if (!iso9660_voldesc_checksig(header.signature)) return -1;
   }
   i--;
