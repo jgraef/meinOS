@@ -15,7 +15,7 @@ all:
 	cp *.a *.o $(GCC_TOOLCHAIN)/lib/
 	# HACK!
 	# merge libmeinos and libc together
-	ar qs $(GCC_TOOLCHAIN)/lib/libc.a libmeinos/*.o
+	ar qs $(GCC_TOOLCHAIN)/lib/libc.a libmeinos/*.o ../../lib/libmeinos/*.o
 
 clean:
 	make -C stdlibc/ clean
