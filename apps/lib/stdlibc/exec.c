@@ -35,7 +35,6 @@ static char *find_file(const char *file) {
   return path;
 }
 
-#include <misc.h>
 int execl(const char *path, ... /*, (char *)0 */) {
   va_list args;
   int argc,ret;
@@ -46,7 +45,6 @@ int execl(const char *path, ... /*, (char *)0 */) {
     argv = realloc(argv,(argc+1)*sizeof(char*));
     argv[argc] = va_arg(args,char*);
     if (argv[argc]==NULL) break;
-    dbgmsg("argv[%d] = %s\n",argc,argv[argc]);
   }
 
   ret = execve(path,(void*)argv,(void*)environ);

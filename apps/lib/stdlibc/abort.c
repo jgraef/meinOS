@@ -25,7 +25,6 @@ void _close_all_filehandles(); ///< @see files.c
 
 /**
  * Aborts the program
- *  @todo Save cordump to file "core"
  */
 void abort() {
   #ifdef COREFILE
@@ -38,7 +37,12 @@ void abort() {
   pid_t pid = getpid();
   fprintf(fd,"Process \"%s\" (PID: %d) was aborted\n",getname(pid),pid);
   fprintf(fd,"Aborted at 0x%x\n",__builtin_return_address(1));
-  fprintf(fd,"Strack frame: 0x%x\n",__builtin_frame_address(0));
+  fprintf(fd,"Strack trace:\n");
+
+  void **bp;
+  for (bp = __builtin_frame_address(0);bp!=NULL;bp = (void**)*bp) {
+    fprintf(fd,"bp=%p pc=%p\n",bp,bp[1]);
+  }
 
   _close_all_filehandles();
   syscall_call(SYSCALL_PROC_ABORT,0);

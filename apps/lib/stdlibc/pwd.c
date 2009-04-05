@@ -37,45 +37,83 @@ static void pwd_shutdown() {
   }
   llist_destroy(pwd_list);
 }
-#include <misc.h>
+
+static int passwd_readline(FILE *fd,char **username,char **home,char **shell,uid_t *uid,gid_t *gid) {
+  static char buf[1024];
+  fgets(buf,1024,fd);
+
+  // Username
+  char *end_username = strchr(buf,':');
+  if (end_username==NULL) return -1;
+  *end_username = 0;
+  *username = buf;
+
+  // Password
+  char *end_password = strchr(end_username+1,':');
+  if (end_password==NULL) return -1;
+
+  // UID
+  char *end_uid = strchr(end_password+1,':');
+  if (end_uid==NULL) return -1;
+  *end_uid = 0;
+  *uid = (uid_t)strtoul(end_password+1,NULL,10);
+
+  // UID
+  char *end_gid = strchr(end_uid+1,':');
+  if (end_gid==NULL) return -1;
+  *end_gid = 0;
+  *gid = (uid_t)strtoul(end_uid+1,NULL,10);
+
+  // Comment
+  char *end_comment = strchr(end_gid+1,':');
+  if (end_comment==NULL) return -1;
+
+  // Home
+  char *end_home = strchr(end_comment+1,':');
+  if (end_home==NULL) return -1;
+  *end_home = 0;
+  *home = end_comment+1;
+
+  // Shell
+  char *end_shell = end_comment+strlen(end_comment);
+  if (end_shell==NULL) return -1;
+  *end_shell = 0;
+  *shell = end_home+1;
+
+  return 0;
+}
+
 static void pwd_init() {
   atexit(pwd_shutdown);
   pwd_list = llist_create();
 
   FILE *fd = fopen("/boot/etc/passwd","r");
   if (fd!=NULL) {
-    char *username = malloc(LOGIN_NAME_MAX);
-    char *home = malloc(PATH_MAX);
-    char *shell = malloc(PATH_MAX);
-    char *tmp = malloc(1024);
+    char *username;
+    char *home;
+    char *shell;
     uid_t uid;
     gid_t gid;
 
     while (!feof(fd)) {
-      if (fscanf(fd,"%s:%s:%u:%u:%s:%s:%s",username,tmp,&uid,&gid,tmp,home,shell)>0) {
+      if (passwd_readline(fd,&username,&home,&shell,&uid,&gid)==0) {
         struct passwd *pwd = malloc(sizeof(struct passwd));
         pwd->pw_name = strdup(username);
         pwd->pw_uid = uid;
         pwd->pw_gid = gid;
-        pwd->pw_dir = strdup(username);
-        pwd->pw_shell = strdup(username);
-        dbgmsg("<%s:%d:%d:%s:%s>\n",pwd->pw_name,pwd->pw_uid,pwd->pw_gid,pwd->pw_dir,pwd->pw_shell);
+        pwd->pw_dir = strdup(home);
+        pwd->pw_shell = strdup(shell);
         llist_push(pwd_list,pwd);
       }
       else break;
     }
     fclose(fd);
-
-    free(username);
-    free(home);
-    free(shell);
-    free(tmp);
   }
 }
 
 struct passwd *getpwnam(const char *name) {
   if (pwd_list==NULL) pwd_init();
-while (1);
+
   size_t i;
   struct passwd *pwd;
   for (i=0;(pwd = llist_get(pwd_list,i));i++) {
@@ -85,10 +123,8 @@ while (1);
 }
 
 struct passwd *getpwuid(uid_t uid) {
-  dbgmsg("Hello\n");
   if (pwd_list==NULL) pwd_init();
-  dbgmsg("World\n");
-while (1);
+
   size_t i;
   struct passwd *pwd;
   for (i=0;(pwd = llist_get(pwd_list,i));i++) {
@@ -99,7 +135,7 @@ while (1);
 
 struct passwd *getpwent() {
   if (pwd_list==NULL) pwd_init();
-while (1);
+
   return llist_get(pwd_list,pwd_idx++);
 }
 

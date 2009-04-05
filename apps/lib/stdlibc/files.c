@@ -1147,15 +1147,13 @@ int tcsetattr(int fildes,int optional_actions,const struct termios *termios_p) {
 }
 
 char *ttyname(int fildes) {
-  int res;
   struct filelist_item *file = filebyfh(fildes);
   if (file) {
     if (file->isatty) return file->path;
-    else res = -ENOTTY;
+    else errno = ENOTTY;
   }
-  else res = -EBADF;
-  errno = res<0?-res:0;
-  return res<0?-1:res;
+  else errno = EBADF;
+  return NULL;
 }
 
 int isatty(int fildes) {

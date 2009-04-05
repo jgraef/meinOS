@@ -50,7 +50,7 @@ void _stdlib_init() {
   _signal_init();
   _fs_init();
   _stdio_init();
-  setlocale(LC_ALL,"POSIX");
+  setlocale(LC_ALL,"C");
 }
 
 /**

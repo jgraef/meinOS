@@ -82,8 +82,8 @@ char *setlocale(int category,const char *locale) {
   if (locale==NULL) return locale_current_name;
   else if (strcmp(locale,"POSIX")==0 || strcmp(locale,"C")==0 || locale[0]==0) {
     locale_copy(&locale_current,&locale_posix,category);
-    locale_current_name = locale;
-    return locale;
+    locale_current_name = (char*)locale;
+    return locale_current_name;
   }
   else return NULL;
 }
