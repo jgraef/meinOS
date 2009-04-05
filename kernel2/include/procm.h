@@ -166,5 +166,7 @@ int proc_memalloc(pid_t proc_pid,void *virt,int writable,int swappable);
 int proc_system(pid_t proc_pid,int system);
 int proc_jump(pid_t proc_pid,void *dest);
 int *proc_createstack(pid_t proc_pid);
+int *proc_getstack(pid_t proc_pid);
+int proc_setstack(pid_t proc_pid,int *stack);
 
 #endif

@@ -1,0 +1,23 @@
+# The default runlevel is defined here
+id:2:initdefault:
+
+# First script to be executed, if not booting in emergency (-b) mode
+si::bootwait:/etc/init.d/boot
+
+# /etc/init.d/rc takes care of runlevel handling
+#
+# runlevel 0  is  System halt   (Do not use this for initdefault!)
+# runlevel 1  is  Single user mode
+# runlevel 2  is  Local multiuser without remote network (e.g. NFS)
+# runlevel 3  is  Full multiuser with network
+# runlevel 4  is  Not used
+# runlevel 5  is  Full multiuser with network and xdm
+# runlevel 6  is  System reboot (Do not use this for initdefault!)
+#
+l0:0:wait:/etc/init.d/rc 0
+l1:1:wait:/etc/init.d/rc 1
+l2:2:wait:/etc/init.d/rc 2
+l3:3:wait:/etc/init.d/rc 3
+#l4:4:wait:/etc/init.d/rc 4
+l5:5:wait:/etc/init.d/rc 5
+l6:6:wait:/etc/init.d/rc 6

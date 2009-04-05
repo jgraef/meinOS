@@ -26,37 +26,6 @@
 
 #include "exe_elf.h"
 
-#if 0 /** @todo remove? */
-static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t file_addr,size_t file_size,int writable) {
-  if (mem_addr<(void*)USERSPACE_ADDRESS) return -1;
-  size_t i;
-  int ret = 0;
-  pid_t own_pid = getpid();
-
-  lseek(fh,file_addr,SEEK_SET);
-
-  for (i=0;i<mem_size;i+=PAGE_SIZE) {
-    void *buf = mem_alloc(PAGE_SIZE);
-    size_t cur_count = i>file_size?0:(i+PAGE_SIZE>file_size?file_size%PAGE_SIZE:PAGE_SIZE);
-    if (cur_count>0) {
-      read(fh,buf,cur_count);
-      dbgmsg("Loading from disk: 0x%x 0x%x 0x%x\n",mem_addr+i,file_addr+i,cur_count);
-    }
-    else {
-      memset(buf,0,PAGE_SIZE);
-      dbgmsg("Zeroing: 0x%x\n",mem_addr+i);
-    }
-    if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)!=NULL) proc_memunmap(own_pid,buf);
-    else {
-      proc_memfree(own_pid,buf);
-      ret = -1;
-      break;
-    }
-  }
-  return ret;
-}
-#endif
-
 /**
  * Validates ELF header
  *  @param header Pointer to ELF header
@@ -77,15 +46,22 @@ static int elf_loadseg(pid_t pid,int fh,void *mem_addr,size_t mem_size,size_t fi
   int ret = 0;
   pid_t own_pid = getpid();
 
-  lseek(fh,file_addr,SEEK_SET);
-
+  //lseek(fh,file_addr,SEEK_SET);
+  //dbgmsg("[0x%x:0x%x -> 0x%x:0x%x]\n",file_addr,file_size,mem_addr,mem_size);
   for (i=0;i<mem_size;i+=PAGE_SIZE) {
     void *buf = mem_alloc(PAGE_SIZE);
     size_t cur_count = i>file_size?0:(i+PAGE_SIZE>file_size?file_size%PAGE_SIZE:PAGE_SIZE);
-    if (cur_count>0) read(fh,buf,cur_count);
+    //dbgmsg("<{0x%x 0x%x} buf=0x%x; cur_count=0x%x>\n",file_addr+i,mem_addr+i,buf,cur_count);
+    if (cur_count>0) {
+      //dbgmsg("TODO: BUG! lseek get's offset by 0x1000: %s:%d\n",__FILE__,__LINE__);
+      lseek(fh,file_addr+i,SEEK_SET);
+      read(fh,buf,cur_count);
+      //dbgmsg("read(%d) = 0x%x\n",fh,tmp);
+    }
     else memset(buf,0,PAGE_SIZE);
     if (proc_memmap(pid,mem_addr+i,mem_getphysaddr(buf),writable,1,0)!=NULL) proc_memunmap(own_pid,buf);
     else {
+      dbgmsg("Error at 0x%x!\n",mem_addr+i);
       proc_memfree(own_pid,buf);
       ret = -1;
       break;

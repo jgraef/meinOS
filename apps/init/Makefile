@@ -1,6 +1,6 @@
 -include ../../Makefile.config
 
-all: all_init all_init2 all_init_ramdisk
+all: all_init all_init2
 
 all_init: init init.objdump
 	cp $< ../../files/bin
@@ -8,16 +8,10 @@ all_init: init init.objdump
 all_init2: init2 init2.objdump
 	cp $< ../../files/bin
 
-all_init_ramdisk: init_ramdisk init_ramdisk.objdump
-	cp $< ../../files/bin
-
-init: init.c exe_elf.c
-	$(APPS_CC) -o $@ $^
+init: init.c grub.c proc.c procfs.c exe.c exe_elf.c
+	$(APPS_CC) -o $@ $^ -lfuse
 
 init2: init2.c
-	$(APPS_CC) -o $@ $^
-
-init_ramdisk: init_ramdisk.c
 	$(APPS_CC) -o $@ $^
 
 init.objdump: init
@@ -26,8 +20,5 @@ init.objdump: init
 init2.objdump: init2
 	$(APPS_OBJDUMP) -d -S $^ > $@
 
-init_ramdisk.objdump: init_ramdisk
-	$(APPS_OBJDUMP) -d -S $^ > $@
-
 clean:
-	rm -f init init2 init_ramdisk *.objdump
+	rm -f init init2 *.objdump

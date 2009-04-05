@@ -16,36 +16,20 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <misc.h>
-#include <unistd.h>
-#include <errno.h>
+#ifndef _HELPER_H_
+#define _HELPER_H_
 
-int main() {
-  pid_t child;
+typedef struct {
+  char *name;
+  char *path;
+  int priority;
+} rc_script_t;
 
-  int p[2];
-  if (pipe(p)==0) {
-    dbgmsg("p[0] = %d\n",p[0]);
-    dbgmsg("p[1] = %d\n",p[1]);
+char *rcd_path(int runlevel);
+int get_runlevel(void);
+int str_to_runlevel(const char *str);
+void parse_rc_script(rc_script_t *script,const char *dir,const char *file);
+int compare_rc_script(const void *vscript1,const void *vscript2);
+int make_rc_symlink(const char *name,int runlevel,int priority,char prefix);
 
-    if ((child = fork())==0) {
-      dbgmsg("writing to pipe\n");
-      //write(p[1],"Hello World\n",16);
-      dbgmsg("write\n");
-    }
-    else {
-      char buf[16];
-
-      dbgmsg("reading from pipe\n");
-      read(p[0],buf,16);
-      buf[15] = 0;
-      dbgmsg("read: %s\n",buf);
-    }
-
-    dbgmsg("reached end\n");
-  }
-  else dbgmsg("pipe() failed: (#%d) %s\n",errno,strerror(errno));
-
-  while (1);
-  return 0;
-}
+#endif /* _HELPER_H_ */

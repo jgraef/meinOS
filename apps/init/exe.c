@@ -14,38 +14,36 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+*/ 
 
-#include <misc.h>
-#include <unistd.h>
-#include <errno.h>
+#include <sys/types.h>
+#include <stdlib.h>
 
-int main() {
-  pid_t child;
+#include "init.h"
+#include "exe_elf.h"
 
-  int p[2];
-  if (pipe(p)==0) {
-    dbgmsg("p[0] = %d\n",p[0]);
-    dbgmsg("p[1] = %d\n",p[1]);
+exe_t *exe_create(const char *file) {
+  exe_t *exe = malloc(sizeof(exe_t*));
 
-    if ((child = fork())==0) {
-      dbgmsg("writing to pipe\n");
-      //write(p[1],"Hello World\n",16);
-      dbgmsg("write\n");
-    }
-    else {
-      char buf[16];
-
-      dbgmsg("reading from pipe\n");
-      read(p[0],buf,16);
-      buf[15] = 0;
-      dbgmsg("read: %s\n",buf);
-    }
-
-    dbgmsg("reached end\n");
+  // try ELF
+  exe->data = elf_create(file);
+  if (exe->data!=NULL) {
+    exe->type = EXE_ELF;
+    return exe;
   }
-  else dbgmsg("pipe() failed: (#%d) %s\n",errno,strerror(errno));
+  else elf_destroy((elf_t*)exe->data);
 
-  while (1);
-  return 0;
+  // not an executable
+  free(exe);
+  return NULL;
+}
+
+void *exe_load(exe_t *exe,pid_t pid) {
+  if (exe->type==EXE_ELF) return elf_load((elf_t*)exe->data,pid);
+  else return NULL;
+}
+
+void exe_destroy(exe_t *exe) {
+  if (exe->type==EXE_ELF) elf_destroy((elf_t*)exe->data);
+  free(exe);
 }

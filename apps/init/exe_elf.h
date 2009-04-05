@@ -17,6 +17,9 @@
 */
 
 #ifndef _EXE_ELF_H_
+#define _EXE_ELF_H_
+
+#include <stdint.h>
 
 #define ET_NONE   0
 #define ET_REL    1
@@ -116,4 +119,4 @@ elf_t *elf_create(const char *file);
 void elf_destroy(elf_t *elf);
 void *elf_load(elf_t *elf,pid_t pid);
 
-#endif
+#endif /* _EXE_ELF_H_ */

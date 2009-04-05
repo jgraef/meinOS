@@ -16,65 +16,93 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <misc.h>
-#include <limits.h>
 #include <stdio.h>
-#include <dirent.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include <rpc.h>
+#include <signal.h>
+#include <regex.h>
 
-#define INIT_D "/boot/etc/init.d/initd.conf"
+#include <misc.h>
 
-int main() {
+#define INIT_INITTAB "/boot/etc/inittab"
 
+static int current_runlevel = 0;
 
+static void init_set_runlevel(int new) {
+  current_runlevel = new;
+}
 
-  while (1);
+static int init_get_runlevel(void) {
+  return current_runlevel;
+}
 
-  FILE *fd = fopen(INIT_D,"r");
-  int flags = fcntl(fileno(fd),F_GETFD);
-  fcntl(fileno(fd),flags|FD_CLOEXEC);
+/*static int init_load_inittab(const char *file) {
+  FILE *fd = fopen(INIT_INITTAB,"r");
 
   if (fd!=NULL) {
-    char buf[1024];
+    regex_t regex;
+    regmatch_t regmatch[8];
+
+    // "^[:space:]*[^:]*:[^:]*:[^:]*:[^:]*[:space:]*$"
+    regcomp(&regex,":?[^:]:?",REG_NEWLINE);
+
     while (!feof(fd)) {
-      fgets(buf,1024,fd);
-      if (buf[0]!=0 && buf[0]!='\n' && buf[0]!='#') {
-        dbgmsg("system(%s) = %d\n",buf,system(buf));
-while (1);
+      static char line[256];
+
+      // read line
+      fgets(line,256,fd);
+
+      // comment
+      if (line[0]=='#') {
+        continue;
       }
 
-#if 0 /** @todo remove */
-        size_t i;
-        size_t j = 0;
-        size_t k = 0;
-        char **argv = NULL;
-        for (i=0;buf[i];i++) {
-          if (buf[i]==':') {
-            argv = realloc(argv,(k+1)*sizeof(char*));
-            argv[k] = malloc(i-j+1);
-            memcpy(argv[k],buf+j,i-j);
-            argv[k][i-j] = 0;
-            k++;
-            j = i+1;
-          }
+      // match it
+      regexec(&regex,line,8,regmatch,0);
+while (1);
+      int i;
+      for (i=0;i<8;i++) {
+        if (regmatch[i].rm_so!=-1) {
+          size_t len = regmatch[i].rm_eo-regmatch[i].rm_so;
+          char *buf = malloc(len+1);
+          memcpy(buf,line+regmatch[i].rm_so,len);
+          buf[len] = 0;
+          dbgmsg("Match #%d: \"%s\"\n",i,buf);
+          free(buf);
         }
-        argv = realloc(argv,(k+2)*sizeof(char*));
-        argv[k] = malloc(i-j+1);
-        memcpy(argv[k],buf+j,i-j);
-        argv[k][i-j] = 0;
-        argv[k+1] = NULL;
-
-        if (fork()==0) execv(argv[0],argv);
-
-        for (i=0;argv[i];i++) free(argv[i]);
-        free(argv);
-#endif
+      }
+      while (1);
     }
-    fclose(fd);
+
+    regfree(&regex);
+
     return 0;
   }
-  else return 1;
+  else {
+    return -1;
+  }
+}*/
+
+int main() {
+  kill(1,SIGUSR1);
+
+  /// @todo Put in /etc/init.d
+  dbgmsg("Starting ramdisk...\n");
+  pid_t pid = fork();
+  if (pid==0) {
+    execl("/boot/bin/ramdisk","ramdisk",0);
+    dbgmsg("Didn't start ramdisk, something went wrong.\n");
+    return 0;
+  }
+  dbgmsg("Mounting ramdisk...\n");
+  do sleep(1);
+  while (vfs_mount("ramdisk","/",NULL,0)!=-1);
+
+  //init_load_inittab(INIT_INITTAB);
+
+  rpc_func(init_set_runlevel,"i",sizeof(int));
+  rpc_func(init_get_runlevel,"",0);
+
+  rpc_mainloop(-1);
+
+  return 0;
 }

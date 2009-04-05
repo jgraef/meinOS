@@ -78,6 +78,7 @@ struct cdi_fs_file {
 static int cdi_fs_mount(struct cdi_fs_driver *driver,const char *fs_name,const char *mountpoint,const char *dev,int readonly) {
   CDI_DEBUG("fs_mount(0x%x,%s,%s,%s,%d)\n",driver,fs_name,mountpoint,dev,readonly);
   int fsid = rpc_call("vfs_regfs",0,fs_name,mountpoint);
+
   if (fsid!=-1) {
     struct cdi_fs_filesystem *filesystem = malloc(sizeof(struct cdi_fs_filesystem));
     filesystem->driver = driver;

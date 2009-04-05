@@ -24,7 +24,7 @@
 #define siglongjmp(env,val) longjmp(env,val)
 #define _longjmp(env,val)   longjmp(env,val)
 
-typedef void** jmp_buf;
+typedef int jmp_buf[6];
 typedef jmp_buf sigjmp_buf;
 
 int setjmp(jmp_buf env);

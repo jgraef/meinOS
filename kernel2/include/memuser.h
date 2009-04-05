@@ -53,6 +53,7 @@ int memuser_free_syscall(void *page);
 void *memuser_getphysaddr(addrspace_t *addrspace,void *virt);
 void *memuser_getphysaddr_syscall(void *virt);
 void *memuser_create_stack(addrspace_t *addrspace);
+int memuser_expand_stack(addrspace_t *addrspace);
 int memuser_destroy_stack(addrspace_t *addrspace);
 int memuser_pagefault(void *addr);
 int memuser_alloc_at(addrspace_t *addrspace,void *addr,void *phys,int writable);

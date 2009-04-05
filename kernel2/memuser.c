@@ -187,7 +187,9 @@ void *memuser_alloc(addrspace_t *addrspace,size_t count,int swappable) {
     size_t i;
     for (i=0;i<count/PAGE_SIZE;i++) {
       void *virt = addr+i*PAGE_SIZE;
-      if (!paging_getpde_pd(virt,addrspace->pagedir).exists) memuser_create_pagetable(addrspace->pagedir,virt);
+      if (!paging_getpde_pd(virt,addrspace->pagedir).exists) {
+        memuser_create_pagetable(addrspace->pagedir,virt);
+      }
       pte_t pte;
       memset(&pte,0,sizeof(pte));
       pte.exists = 1;
@@ -277,9 +279,19 @@ void *memuser_getphysaddr_syscall(void *virt) {
  *  @return Stack address
  */
 void *memuser_create_stack(addrspace_t *addrspace) {
-  addrspace->stack = memuser_alloc(addrspace,PAGE_SIZE,0);
-  if (addrspace->stack!=NULL) return addrspace->stack+PAGE_SIZE-4;
-  else return NULL;
+  addrspace->stack = (void*)USERSTACK_END;
+  memuser_expand_stack(addrspace);
+  return addrspace->stack+PAGE_SIZE-4;
+}
+
+/**
+ * Expands stack
+ *  @param addrspace Address space of stack to expand
+ *  @return Success?
+ */
+int memuser_expand_stack(addrspace_t *addrspace) {
+  addrspace->stack -= PAGE_SIZE;
+  return memuser_alloc_at(addrspace,addrspace->stack,NULL,1);
 }
 
 /**
@@ -294,42 +306,51 @@ int memuser_destroy_stack(addrspace_t *addrspace) {
 /**
  * User memory pagefault handler
  *  @param addr Address
- *  @return If Pagefault is a "real" Pagefault
+ *  @return -1 If Pagefault is a "real" Pagefault, else 0
  */
 int memuser_pagefault(void *addr) {
   addrspace_t *addrspace = proc_current->addrspace;
   void *page = PAGEDOWN(addr);
   pte_t pte = paging_getpte(page);
-  if (!pte.exists) return -1;
-  else if (pte.swapped && pte.in_memory==0) {
-    kprintf("kernel: Catched access to out-swapped memory\n");
-    if (swap_in(proc_current,page)!=-1) {
-      llist_remove(addrspace->pages_swapped,llist_find(addrspace->pages_swapped,page));
-      llist_push(addrspace->pages_loaded,page);
-      swap_remove(proc_current,page);
+
+  if (!pte.exists) {
+    if (addr<addrspace->stack && addr>(void*)(USERSTACK_END-USERSTACK_MAXSIZE)) { // expand stack
+      memuser_expand_stack(addrspace);
       return 0;
     }
-    else return -1;
+    else return -1; // pagefault
   }
-  else if (pte.cow && pte.in_memory==1) {
-    void *old = PAGE2ADDR(pte.page);
-    void *new = memphys_alloc();
-    pte.page = ADDR2PAGE(new);
-    pte.cow = 0;
-    pte.writable = 1;
-    paging_setpte(page,pte);
-    paging_physread(page,old,PAGE_SIZE);
-    return 0;
+  else {
+    if (pte.swapped && pte.in_memory==0) { // swap
+      kprintf("kernel: Catched access to out-swapped memory\n");
+      if (swap_in(proc_current,page)!=-1) {
+        llist_remove(addrspace->pages_swapped,llist_find(addrspace->pages_swapped,page));
+        llist_push(addrspace->pages_loaded,page);
+        swap_remove(proc_current,page);
+        return 0;
+      }
+      else return -1;
+    }
+    else if (pte.cow && pte.in_memory==1) { // copy on write FIXME
+      void *old = PAGE2ADDR(pte.page);
+      void *new = memphys_alloc();
+      pte.page = ADDR2PAGE(new);
+      pte.cow = 0;
+      pte.writable = 1;
+      paging_setpte(page,pte);
+      paging_physread(page,old,PAGE_SIZE);
+      return 0;
+    }
+    else if (pte.in_memory==0) { // imaginary page
+      pte.page = ADDR2PAGE(memphys_alloc());
+      pte.in_memory = 1;
+      paging_setpte(page,pte);
+      llist_remove(addrspace->pages_imaginary,llist_find(addrspace->pages_imaginary,page));
+      llist_push(addrspace->pages_loaded,page);
+      return 0;
+    }
+    else return -1; // pagefault
   }
-  else if (pte.in_memory==0) {
-    pte.page = ADDR2PAGE(memphys_alloc());
-    pte.in_memory = 1;
-    paging_setpte(page,pte);
-    llist_remove(addrspace->pages_imaginary,llist_find(addrspace->pages_imaginary,page));
-    llist_push(addrspace->pages_loaded,page);
-    return 0;
-  }
-  else return -1;
 }
 
 /**
@@ -343,7 +364,6 @@ int memuser_alloc_at(addrspace_t *addrspace,void *addr,void *phys,int writable) 
   if (!paging_getpde_pd(addr,addrspace->pagedir).exists) {
     memuser_create_pagetable(addrspace->pagedir,addr);
   }
-
   pte_t pte = paging_getpte_pd(addr,addrspace->pagedir);
   memset(&pte,0,sizeof(pte));
   pte.exists = 1;
@@ -355,6 +375,7 @@ int memuser_alloc_at(addrspace_t *addrspace,void *addr,void *phys,int writable) 
   pte.page = ADDR2PAGE(phys);
   paging_setpte_pd(addr,pte,addrspace->pagedir);
   llist_push(addrspace->pages_loaded,addr);
+
   return 0;
 }
 

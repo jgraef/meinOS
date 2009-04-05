@@ -28,50 +28,6 @@ int main(int argc,char *argv[]);
 void _stdlib_init();     ///< @see apps/lib/stdlibc/stdlib.c
 void _libmeinos_init();  ///< @see apps/lib/libmeinos/misc.c
 
-/*static int var;
-
-static void get_cmdline(struct process_data *data,char ***_argv,int *_argc,char **_stdin,char **_stdout,char **_stderr) {
-  int argc = data->argc;
-  char **argv = malloc((argc+1)*sizeof(char*));
-  size_t i = 0;
-  size_t j;
-
-  for (j=0;j<argc;j++) {
-    argv[j] = data->cmdline+i;
-    i += strlen(data->cmdline+i)+1;
-  }
-  argv[j] = NULL;
-
-  if (data->has_stdin) {
-    if (_stdin!=NULL) *_stdin = data->stdio+i;
-    i += strlen(data->stdio+i)+1;
-  }
-  else if (_stdin!=NULL) *_stdin = NULL;
-
-  if (data->has_stdout) {
-    if (_stdout!=NULL) *_stdout = data->stdio+i;
-    i += strlen(data->stdio+i)+1;
-  }
-  else if (_stdout!=NULL) *_stdout = NULL;
-
-  if (data->has_stderr) {
-    if (_stderr!=NULL) *_stderr = data->stdio+i;
-    i += strlen(data->stdio+i)+1;
-  }
-  else if (_stderr!=NULL) *_stderr = NULL;
-
-  *_argv = argv;
-  *_argc = argc;
-}
-
-static void crt0_quit() {
-  if (_process_data!=NULL) {
-    // remove process data
-    shmdt(_process_data);
-    shmctl(var,IPC_RMID,NULL);
-  }
-}*/
-
 void _start() {
   char *backup_argv[] = { NULL };
   char **argv = backup_argv;

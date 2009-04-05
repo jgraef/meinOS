@@ -1,0 +1,4 @@
+#!/bin/sh
+# TODO: Has this to be done by fstab?
+ramdisk
+mount -t ramdisk /

@@ -1,5 +1,8 @@
 -include ../../../Makefile.config
 
+CC = $(LIBS_CC)
+CFLAGS = $(LIBS_CFLAGS)
+
 OBJFILES = cmos.o \
            devfs.o \
            irq_asm.o \
@@ -12,53 +15,26 @@ OBJFILES = cmos.o \
            ringbuf.o \
            rpc.o \
            syscall.o \
-           dyncall.o \
-           llist.o \
-           pack.o \
-           perm.o \
-           tree.o
+           \
+           ../../../lib/libmeinos/dyncall.o \
+           ../../../lib/libmeinos/llist.o \
+           ../../../lib/libmeinos/pack.o \
+           ../../../lib/libmeinos/perm.o \
+           ../../../lib/libmeinos/tree.o
 
 all: ../libmeinos.a
 
 ../libmeinos.a: $(OBJFILES)
 	$(LIBS_AR) rs $@ $^
 
-cmos.o: cmos.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-devfs.o: devfs.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
 irq_asm.o: irq.asm
 	$(LIBS_ASM) -f elf -o $@ $^
-irq.o: irq.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-llist2.o: llist2.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
 lock.o: lock.asm
 	$(LIBS_ASM) -f elf -o $@ $^
-misc.o: misc.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-path.o: path.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-pci.o: pci.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-proc.o: proc.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-ringbuf.o: ringbuf.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-rpc.o: rpc.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-syscall.o: syscall.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-dyncall.o: ../../../lib/libmeinos/dyncall.asm
+
+../../../lib/libmeinos/dyncall.o: ../../../lib/libmeinos/dyncall.asm
 	$(LIBS_ASM) -f elf -o $@ $^
-llist.o: ../../../lib/libmeinos/llist.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-pack.o: ../../../lib/libmeinos/pack.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-perm.o: ../../../lib/libmeinos/perm.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
-tree.o: ../../../lib/libmeinos/tree.c
-	$(LIBS_CC) -o $@ $^ $(LIBS_CFLAGS)
+
 
 clean:
 	rm -f $(OBJFILES) ../libmeinos.a

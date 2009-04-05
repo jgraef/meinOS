@@ -26,6 +26,7 @@
 #include <misc.h>
 #include <dyncall.h>
 #include <unistd.h>
+#include <string.h>
 
 int rpc_func_create(const char *name,void *func,const char *synopsis,size_t paramsz) {
   int ret = syscall_call(SYSCALL_RPC_CREATE,4,name,func,synopsis,paramsz);
@@ -69,9 +70,13 @@ int rpc_vcall(const char *name,int flags,va_list args) {
     // call function
     for (try=0;try<RPC_TRIES_MAXNUM && error;try++) {
       syscall_call(SYSCALL_RPC_CALL,5,id,pack_data(params),noret?NULL:&ret,(ret_params && !noret)?pack_data(params):NULL,noret?NULL:&error);
-      //dbgmsg("rpc[%d]:\t %s %d->%d ret=%d error=%d\n",try,name,getpid(),sendto,ret,error);
+#if 0
+      dbgmsg("rpc[%d]:\t %s %d->%d ret=%d error=%d\n",try,name,getpid(),sendto,ret,error);
+      if (ret<0) {
+        dbgmsg("rpc[%d]:\t Possibly error: %s\n",try,strerror(-ret));
+      }
+#endif
     }
-    while (error!=0);
 
     if (error==0) {
       if (ret_params) {

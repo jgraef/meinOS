@@ -42,8 +42,6 @@
 #define STDERR_FILENO    2
 
 #define _exit(r)    _Exit(r)
-#define getpid()    syscall_call(SYSCALL_PROC_GETPID,0)
-#define getppid()   getppidbypid(getpid())
 
 #define dup(fildes) dup2(fildes,0)
 
@@ -134,6 +132,13 @@ static __inline__ setegid(gid_t gid) {
 static __inline__ setregid(gid_t rgid,gid_t egid) {
   syscall_call(SYSCALL_PROC_SETGID,2,1,rgid);
   syscall_call(SYSCALL_PROC_SETGID,2,2,egid);
+}
+
+static __inline__ pid_t getpid(void) {
+  return syscall_call(SYSCALL_PROC_GETPID,0);
+}
+static __inline__ pid_t getppid(void) {
+  getppidbypid(getpid());
 }
 
 #endif

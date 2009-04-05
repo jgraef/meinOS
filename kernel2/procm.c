@@ -67,6 +67,8 @@ int proc_init() {
   if (syscall_create(SYSCALL_PROC_SYSTEM,proc_system,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_JUMP,proc_jump,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_CREATESTACK,proc_createstack,1)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_GETSTACK,proc_getstack,1)==-1) return -1;
+  if (syscall_create(SYSCALL_PROC_SETSTACK,proc_setstack,2)==-1) return -1;
   if (syscall_create(SYSCALL_PROC_WAITPID,proc_waitpid,3)==-1) return -1;
   return 0;
 }
@@ -326,11 +328,9 @@ pid_t proc_getparent(pid_t pid) {
 pid_t proc_getchild(pid_t pid,size_t i) {
   proc_t *proc = proc_find(pid);
   if (proc!=NULL) {
-    if (proc->parent!=NULL) {
-      proc_t *child = llist_get(proc->parent->children,i);
-      if (child==NULL) return -1;
-      else return child->pid;
-    }
+    proc_t *child = llist_get(proc->children,i);
+    if (child==NULL) return -1;
+    else return child->pid;
   }
   return 0;
 }
@@ -820,11 +820,38 @@ int proc_jump(pid_t proc_pid,void *dest) {
 int *proc_createstack(pid_t proc_pid) {
   if (proc_current->system) {
     proc_t *proc = proc_find(proc_pid);
-    if (proc!=NULL && proc->addrspace->stack==NULL) {
+    if (proc!=NULL) {
+      if (proc->addrspace->stack!=NULL) {
+        /// @todo IMPORTANT! memuser_destroy_stack() seems to free stack of proc_current. See memuser_free. Something is weird there.
+        /*memuser_load_addrspace(proc->addrspace);
+        memuser_destroy_stack(proc->addrspace);
+        memuser_load_addrspace(proc_current->addrspace);*/
+      }
       int *stack = memuser_create_stack(proc->addrspace);
       proc->registers.esp = (uint32_t)stack;
       return stack;
     }
   }
   return NULL;
+}
+
+int *proc_getstack(pid_t proc_pid) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      return proc->addrspace->stack;
+    }
+  }
+  return NULL;
+}
+
+int proc_setstack(pid_t proc_pid,int *stack) {
+  if (proc_current->system) {
+    proc_t *proc = proc_find(proc_pid);
+    if (proc!=NULL) {
+      proc->addrspace->stack = stack;
+      return 0;
+    }
+  }
+  return -1;
 }

@@ -16,36 +16,41 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <misc.h>
-#include <unistd.h>
-#include <errno.h>
+#ifndef _INIT_H_
+#define _INIT_H_
 
-int main() {
-  pid_t child;
+#include <sys/types.h>
 
-  int p[2];
-  if (pipe(p)==0) {
-    dbgmsg("p[0] = %d\n",p[0]);
-    dbgmsg("p[1] = %d\n",p[1]);
+#include "exe_elf.h"
 
-    if ((child = fork())==0) {
-      dbgmsg("writing to pipe\n");
-      //write(p[1],"Hello World\n",16);
-      dbgmsg("write\n");
-    }
-    else {
-      char buf[16];
+// Executables
 
-      dbgmsg("reading from pipe\n");
-      read(p[0],buf,16);
-      buf[15] = 0;
-      dbgmsg("read: %s\n",buf);
-    }
+typedef struct {
+  void *data;
+  enum {
+    EXE_ELF
+  } type;
+} exe_t;
 
-    dbgmsg("reached end\n");
-  }
-  else dbgmsg("pipe() failed: (#%d) %s\n",errno,strerror(errno));
+exe_t *exe_create(const char *file);
+void *exe_load(exe_t *exe,pid_t pid);
+void exe_destroy(exe_t *exe);
 
-  while (1);
-  return 0;
-}
+// Grub modules
+
+pid_t *init_get_grub_modules();
+int init_run_grub_modules(pid_t *modules);
+void init_sort_grub_modules(pid_t *modules);
+
+// Proc
+
+int proc_exec(const char *file,int var);
+pid_t proc_fork(void *child_entry);
+
+// ProcFS
+int procfs_init(pid_t *grub_modules);
+int procfs_run(void);
+int procfs_proc_new(pid_t pid,const char *name,const char *exe);
+int procfs_proc_update(pid_t pid,const char *name,const char *exe);
+
+#endif /* _INIT_H_ */

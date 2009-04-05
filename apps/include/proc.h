@@ -22,7 +22,6 @@
 #include <sys/types.h>
 #include <syscall.h>
 #include <signal.h>
-#include <unistd.h>
 
 #define getchild(i) getchildbypid(getpid(),i)
 
@@ -108,6 +107,14 @@ static __inline__ gid_t getpgidbypid(pid_t pid) {
 
 static __inline__ pid_t getchildbypid(pid_t pid,size_t i) {
   return syscall_call(SYSCALL_PROC_GETCHILD,2,pid,i);
+}
+
+static __inline__ int *proc_getstack(pid_t pid) {
+  return (int*)syscall_call(SYSCALL_PROC_GETSTACK,1,pid);
+}
+
+static __inline__ int proc_setstack(pid_t pid,int *stack) {
+ syscall_call(SYSCALL_PROC_GETSTACK,2,pid,stack);
 }
 
 char *getname(pid_t pid);

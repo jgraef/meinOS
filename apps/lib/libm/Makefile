@@ -6,9 +6,8 @@
 #  -D_POSIX_MODE - POSIX/ANSI
 #  -D_SVID3_MODE - SVID
 
-CFLAGS = $(LIBS_CFLAGS) -D_IEEE_MODE
-
 CC = $(LIBS_CC)
+CFLAGS = $(LIBS_CFLAGS) -D_IEEE_MODE
 
 OBJFILES = \
 carg.o              i386/fegetround.o    s_fpclassify.o   s_trunc.o \

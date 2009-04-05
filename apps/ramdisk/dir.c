@@ -38,7 +38,6 @@
 
 #include "ramdisk_cdi.h"
 
-
 cdi_list_t ramdisk_fs_dir_list(struct cdi_fs_stream* stream)
 {
     return stream->res->children;

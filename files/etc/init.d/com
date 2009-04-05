@@ -1,0 +1,10 @@
+#!/bin/sh
+
+PIDFILE=/var/run/com.pid
+
+case "$1" in
+  start)
+    com
+    ;;
+  stop)
+    kill `cat $PIDFILE`

@@ -30,6 +30,7 @@ all_apps: clean_apps # HACK!
 	make -C utils/
 	make -C cirrus/
 	make -C fat/
+	make -C rc/
 
 	#make -C joystick/
 	#make -C ext2/
@@ -60,6 +61,7 @@ clean_apps:
 	make -C utils/ clean
 	make -C cirrus/ clean
 	make -C fat/ clean
+	make -C rc/ clean
 
 	#make -C joystick/ clean
 	#make -C ext2/ clean

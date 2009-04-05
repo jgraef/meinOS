@@ -56,6 +56,9 @@
 #define FREEPHYS_ADDRESS   (KERNELPD_ADDRESS+KERNELPD_SIZE)                           ///< phys address of free (phys) pages
 #define FREEPHYS_SIZE      (PHYS_MEMORY-FREEPHYS_ADDRESS)                             ///< phys size of free (phys) pages
 
+#define USERSTACK_END      BUFPAGE_ADDRESS                                            ///< virt end of user stack
+#define USERSTACK_MAXSIZE  (1024*PAGE_SIZE)                                           ///< virt max size of user stack
+
 #define BUFPAGE_ADDRESS    (4092*MBYTES-4*KBYTES)                                     ///< Buffer page for writing/reading physical memory
 #define PAGETABLES_ADDRESS (4092*MBYTES)                                              ///< loaded Pagetables
 #define PAGEDIR_ADDRESS    (4*GBYTES-4*KBYTES)                                        ///< loaded Pagedir
