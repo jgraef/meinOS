@@ -1,0 +1,58 @@
+A unix-similar microkernel x86 operating system.
+Development stopped!
+
+Platform: x86
+Type: Microkernel
+Language: C, Assembler
+Binary format: ELF
+
+Features:
+  * Kernel:
+    * Memory Management
+    * Process Management
+    * IPC:
+      * Message Queues (POSIX)
+      * Shared Memory (POSIX)
+      * Semaphores (POSIX)
+      * Remote Procedure Call
+      * Signals (POSIX)
+    * Multi-boot compatible
+  * Server (drivers running in userspace):
+    * Console (keyboard and text screen)
+    * ATA (with ATAPI)
+    * CDROM
+    * Cirrus Logic
+    * COM
+    * DevFS (/dev)
+    * DMA
+    * FAT
+    * Floppy
+    * ISO9660
+    * PCI
+    * pseudo-devices (/dev/null, /dev/zero, /dev/urandom)
+    * Ramdisk
+    * Virtual File System (manages mountpoints of other filesystems)
+  * Libraries:
+    * libmeinos
+      * CMOS
+      * DevFS
+      * DMA
+      * RPC
+      * Linked Lists
+      * Lock (spinlock)
+      * Path (path parsing utilities)
+      * PCI
+      * Process (process control)
+    * stdlibc
+    * libcdi (Common Driver Interface; not up to date!)
+      * BIOS
+      * Cache
+      * DMA
+      * Filesystems
+      * Networking
+      * PCI
+      * SCSI
+      * Storage
+      * Video
+
+  

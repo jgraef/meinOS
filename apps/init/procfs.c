@@ -138,7 +138,12 @@ static void procfs_parse_path(const char *strpath,procfs_path_t *path) {
   memset(path,0,sizeof(procfs_path_t));
   path->isdir = 1;
   if (tpath->num_parts>0) {
-    path->pid = strtoul(tpath->parts[0],NULL,10);
+    if (strcmp(tpath->parts[0],"self")==0) {
+      path->pid = fuse_current_context->pid;
+    }
+    else {
+      path->pid = strtoul(tpath->parts[0],NULL,10);
+    }
     path->proc = procfs_proc_find(path->pid);
     //path->isdir = 1;
   }

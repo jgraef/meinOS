@@ -35,52 +35,66 @@ static int init_get_runlevel(void) {
   return current_runlevel;
 }
 
-/*static int init_load_inittab(const char *file) {
+static int init_load_inittab(const char *file) {
   FILE *fd = fopen(INIT_INITTAB,"r");
 
   if (fd!=NULL) {
     regex_t regex;
     regmatch_t regmatch[8];
+    memset(regmatch,0,sizeof(regmatch));
 
     // "^[:space:]*[^:]*:[^:]*:[^:]*:[^:]*[:space:]*$"
-    regcomp(&regex,":?[^:]:?",REG_NEWLINE);
+    // ":?[^:]:?"
+    regcomp(&regex,"[^:]*",REG_NEWLINE);
 
     while (!feof(fd)) {
-      static char line[256];
+      char line[1024];
 
       // read line
-      fgets(line,256,fd);
+      fgets(line,1024,fd);
 
       // comment
       if (line[0]=='#') {
         continue;
       }
 
+      dbgmsg("%s\n",line);
+
       // match it
-      regexec(&regex,line,8,regmatch,0);
-while (1);
-      int i;
-      for (i=0;i<8;i++) {
-        if (regmatch[i].rm_so!=-1) {
-          size_t len = regmatch[i].rm_eo-regmatch[i].rm_so;
-          char *buf = malloc(len+1);
-          memcpy(buf,line+regmatch[i].rm_so,len);
-          buf[len] = 0;
-          dbgmsg("Match #%d: \"%s\"\n",i,buf);
-          free(buf);
+      if (regexec(&regex,line,8,regmatch,0)==0) {
+        int i;
+
+        for (i=0;i<8;i++) {
+          if (regmatch[i].rm_so!=-1) {
+//dbgmsg("Start: %d\n",regmatch[i].rm_so);
+//dbgmsg("End:   %d\n",regmatch[i].rm_eo);
+
+            size_t len = regmatch[i].rm_eo-regmatch[i].rm_so;
+            char *buf = malloc(len+1);
+            memcpy(buf,line+regmatch[i].rm_so,len);
+            buf[len] = 0;
+            dbgmsg("Match #%d: \"%s\"\n",i,buf);
+            free(buf);
+          }
+          else {
+            dbgmsg("Match #%d: no match\n",i);
+          }
         }
       }
-      while (1);
+      else {
+        dbgmsg("Error1\n");
+      }
+while (1);
     }
 
     regfree(&regex);
-
     return 0;
   }
   else {
+    dbgmsg("Error2\n");
     return -1;
   }
-}*/
+}
 
 int main() {
   kill(1,SIGUSR1);
@@ -97,7 +111,7 @@ int main() {
   do sleep(1);
   while (vfs_mount("ramdisk","/",NULL,0)!=-1);
 
-  //init_load_inittab(INIT_INITTAB);
+  init_load_inittab(INIT_INITTAB);
 
   rpc_func(init_set_runlevel,"i",sizeof(int));
   rpc_func(init_get_runlevel,"",0);
